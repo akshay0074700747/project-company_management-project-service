@@ -10,8 +10,11 @@ type Credentials struct {
 }
 
 type Members struct {
-	memberID  string
-	ProjectID string `gorm:"foreignKey:ProjectID;references:credentials(project_id)"`
+	MemberID     string
+	ProjectID    string `gorm:"foreignKey:ProjectID;references:credentials(project_id)"`
+	RoleID       uint
+	PermissionID uint
+	IsAccepted   bool `gorm:"default:false"`
 }
 
 type Companies struct {

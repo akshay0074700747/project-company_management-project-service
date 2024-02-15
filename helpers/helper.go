@@ -2,6 +2,8 @@ package helpers
 
 import (
 	"fmt"
+
+	"google.golang.org/grpc"
 )
 
 func PrintErr(err error, messge string) {
@@ -10,4 +12,8 @@ func PrintErr(err error, messge string) {
 
 func PrintMsg(msg string) {
 	fmt.Println(msg)
+}
+
+func DialGrpc(addr string) (*grpc.ClientConn, error) {
+	return grpc.Dial(addr, grpc.WithInsecure())
 }
