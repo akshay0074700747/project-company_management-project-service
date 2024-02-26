@@ -10,10 +10,12 @@ import (
 
 func Initialize(cfg config.Config) *services.ProjectEngine {
 
-	db := db.ConnectDB(cfg)
-	adapter := adapters.NewProjectAdapter(db)
+	dbPostgres := db.ConnectDB(cfg)
+	minioDB := db.ConnectMinio(cfg)
+	adapter := adapters.NewProjectAdapter(dbPostgres, minioDB)
 	usecase := usecases.NewProjectUseCases(adapter)
-	server := services.NewProjectServiceServer(usecase, ":50001")
+	server := services.NewProjectServiceServer(usecase, ":50001",":50003")
+	server.StartConsuming()
 
 	return services.NewProjectEngine(server)
 }

@@ -3,6 +3,7 @@ package helpers
 import (
 	"fmt"
 
+	"github.com/google/uuid"
 	"google.golang.org/grpc"
 )
 
@@ -16,4 +17,8 @@ func PrintMsg(msg string) {
 
 func DialGrpc(addr string) (*grpc.ClientConn, error) {
 	return grpc.Dial(addr, grpc.WithInsecure())
+}
+
+func GenUuid() string {
+	return uuid.New().String()
 }

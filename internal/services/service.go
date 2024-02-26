@@ -2,27 +2,35 @@ package services
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
+	"net/http"
 
 	"github.com/akshay0074700747/project-company_management-project-service/entities"
 	"github.com/akshay0074700747/project-company_management-project-service/helpers"
 	"github.com/akshay0074700747/project-company_management-project-service/internal/usecases"
+	"github.com/akshay0074700747/projectandCompany_management_protofiles/pb/companypb"
 	"github.com/akshay0074700747/projectandCompany_management_protofiles/pb/projectpb"
 	"github.com/akshay0074700747/projectandCompany_management_protofiles/pb/userpb"
 	"google.golang.org/protobuf/types/known/emptypb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type ProjectServiceServer struct {
-	Usecase  usecases.ProjectUsecaseInterfaces
-	UserConn userpb.UserServiceClient
+	Usecase     usecases.ProjectUsecaseInterfaces
+	UserConn    userpb.UserServiceClient
+	CompanyConn companypb.CompanyServiceClient
 	projectpb.UnimplementedProjectServiceServer
 }
 
-func NewProjectServiceServer(usecase usecases.ProjectUsecaseInterfaces, addr string) *ProjectServiceServer {
-	userRes, _ := helpers.DialGrpc(addr)
+func NewProjectServiceServer(usecase usecases.ProjectUsecaseInterfaces, usraddr, compaddr string) *ProjectServiceServer {
+	userRes, _ := helpers.DialGrpc(usraddr)
+	compRes, _ := helpers.DialGrpc(compaddr)
 	return &ProjectServiceServer{
-		Usecase:  usecase,
-		UserConn: userpb.NewUserServiceClient(userRes),
+		Usecase:     usecase,
+		UserConn:    userpb.NewUserServiceClient(userRes),
+		CompanyConn: companypb.NewCompanyServiceClient(compRes),
 	}
 }
 
@@ -34,7 +42,8 @@ func (project *ProjectServiceServer) CreateProject(tx context.Context, req *proj
 		Aim:             req.Aim,
 		Description:     req.Description,
 		IsCompanybased:  req.IsCompanybased,
-	}, req.ComapanyId)
+		IsPublic:        req.IsPublic,
+	}, req.ComapanyId, req.OwnerID)
 
 	if err != nil {
 		helpers.PrintErr(err, "error occured at CreateProject usecase")
@@ -58,7 +67,7 @@ func (project *ProjectServiceServer) AcceptProjectInvite(ctx context.Context, re
 	if err := project.Usecase.AcceptInvitation(entities.Members{
 		MemberID:  req.UserID,
 		ProjectID: req.ProjectID,
-	}); err != nil {
+	}, req.Accept); err != nil {
 		helpers.PrintErr(err, "error occured at AcceptInvitation usecase...")
 		return nil, err
 	}
@@ -71,7 +80,6 @@ func (project *ProjectServiceServer) AddMembers(ctx context.Context, req *projec
 	res, err := project.UserConn.GetByEmail(ctx, &userpb.GetByEmailReq{
 		Email: req.Email,
 	})
-
 	if err != nil {
 		return nil, errors.New("cannot connect to user-service now please try again later")
 	}
@@ -90,13 +98,11 @@ func (project *ProjectServiceServer) AddMembers(ctx context.Context, req *projec
 }
 
 func (project *ProjectServiceServer) ProjectInvites(req *projectpb.ProjectInvitesReq, stream projectpb.ProjectService_ProjectInvitesServer) error {
-
 	res, err := project.Usecase.GetProjectInvites(req.MemberID)
 	if err != nil {
 		helpers.PrintErr(err, "error occured at GetProjectInvites usecase")
 		return err
 	}
-
 	for _, v := range res {
 		if err = stream.Send(&projectpb.ProjectInvitesRes{
 			ProjectID: v.ProjectID,
@@ -108,4 +114,327 @@ func (project *ProjectServiceServer) ProjectInvites(req *projectpb.ProjectInvite
 	}
 
 	return nil
+}
+
+func (project *ProjectServiceServer) GetProjectDetailes(ctx context.Context, req *projectpb.GetProjectReq) (*projectpb.GetProjectDetailesRes, error) {
+
+	res, err := project.Usecase.GetProjectDetails(req.ProjectID, req.ProjectUsername)
+	if err != nil {
+		helpers.PrintErr(err, "error at GetProjectDetails usecase")
+		return nil, errors.New("cannot connect to the project service now")
+	}
+
+	return &projectpb.GetProjectDetailesRes{
+		ProjectID:       res.ProjectID,
+		ProjectUsername: res.ProjectUsername,
+		Members:         uint32(res.Members),
+		Aim:             res.Aim,
+	}, nil
+}
+
+func (project *ProjectServiceServer) GetProjectMembers(req *projectpb.GetProjectReq, stream projectpb.ProjectService_GetProjectMembersServer) error {
+
+	res, err := project.Usecase.GetProjectMembers(req.ProjectID)
+	if err != nil {
+		helpers.PrintErr(err, "error at GetProjectMembers usecase")
+		return err
+	}
+
+	streaam,err := project.UserConn.GetStreamofUserDetails(context.TODO())
+	if err != nil {
+		helpers.PrintErr(err, "error at GetStreamofUserDetails usecase")
+		return err
+	}
+
+	for _, v := range res {
+
+		if err := streaam.Send(&userpb.GetUserDetailsReq{
+			UserID: v.UserID,
+			RoleID: uint32(v.RoleID),
+		}); err != nil {
+			helpers.PrintErr(err, "error at sending to stream")
+			return err
+		}
+
+		details,err := streaam.Recv()
+		if err != nil {
+			helpers.PrintErr(err, "error at recieving to stream")
+			return err
+		}
+
+		if err := stream.Send(&projectpb.GetProjectMembersRes{
+			Email: details.Email,
+			Name: details.Name,
+			Role: details.Role,
+			PermissionID: uint32(v.PermissionID),
+		}); err != nil {
+			helpers.PrintErr(err, "error at sending stream")
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (project *ProjectServiceServer) LogintoProject(ctx context.Context, req *projectpb.LogintoProjectReq) (*projectpb.LogintoProjectRes, error) {
+
+	res, err := project.Usecase.LogintoProject(req.ProjectUsername, req.MemberID)
+	if err != nil {
+		helpers.PrintErr(err, "error at sending stream")
+		return nil, err
+	}
+
+	compRes, err := project.CompanyConn.GetPermission(ctx, &companypb.GetPermisssionReq{
+		ID: uint32(res.PermissionID),
+	})
+	if err != nil {
+		helpers.PrintErr(err, "error at communicating with the company service")
+		return nil, err
+	}
+
+	roleRes, err := project.UserConn.GetRole(ctx, &userpb.GetRoleReq{
+		ID: uint32(res.RoleID),
+	})
+	if err != nil {
+		helpers.PrintErr(err, "error at communicating with the company service")
+		return nil, err
+	}
+
+	return &projectpb.LogintoProjectRes{
+		ProjectID:  res.ProjectID,
+		Permission: compRes.Permission,
+		Role:       roleRes.Role,
+	}, nil
+}
+
+func (project *ProjectServiceServer) AddMemberStatus(ctx context.Context, req *projectpb.MemberStatusReq) (*emptypb.Empty, error) {
+
+	if err := project.Usecase.AddMemberStatueses(req.Status); err != nil {
+		helpers.PrintErr(err, "error happed at AddMemberStatueses")
+		return nil, err
+	}
+
+	return &emptypb.Empty{}, nil
+}
+
+func (project *ProjectServiceServer) DownloadTask(ctx context.Context, req *projectpb.DownloadTaskReq) (*projectpb.DownloadTaskRes, error) {
+
+	task, err := project.Usecase.GetTaskDetails(req.ProjectID, req.UserID)
+	if err != nil {
+		helpers.PrintErr(err, "error happed at GetTaskDetails usecase")
+		return nil, err
+	}
+
+	if task.ObjectName != req.TaskFileID {
+		helpers.PrintErr(err, "the tASKFILEID and objectNmae is no same")
+		return nil, errors.New("the given task file id doesnt exists")
+	}
+
+	res, err := project.Usecase.DownloadTask(task.ObjectName)
+	if err != nil {
+		helpers.PrintErr(err, "error happed at DownloadTask usecase")
+		return nil, err
+	}
+
+	return &projectpb.DownloadTaskRes{
+		File: res,
+	}, nil
+}
+
+func (project *ProjectServiceServer) GetAssignedTask(ctx context.Context, req *projectpb.GetAssignedTaskReq) (*projectpb.GetAssignedTaskRes, error) {
+
+	task, err := project.Usecase.GetTaskDetails(req.ProjectID, req.UserID)
+	if err != nil {
+		helpers.PrintErr(err, "error happed at GetTaskDetails usecase")
+		return nil, err
+	}
+
+	return &projectpb.GetAssignedTaskRes{
+		Task:        task.Task,
+		Description: task.Description,
+		TaskFileID:  task.ObjectName,
+		Stages:      uint32(task.Stages),
+		Deadline:    timestamppb.New(task.Deadline),
+	}, nil
+}
+
+func (project *ProjectServiceServer) AddTaskStatuses(ctx context.Context, req *projectpb.AddTaskStatusesReq) (*emptypb.Empty, error) {
+
+	if err := project.Usecase.InsertStatuses(entities.TaskStatuses{
+		Status: req.Status,
+		Stat:   int(req.Below),
+	}); err != nil {
+		helpers.PrintErr(err, "error happened at InsertStatuses usecase")
+		return nil, err
+	}
+
+	return &emptypb.Empty{}, nil
+}
+
+func (project *ProjectServiceServer) GetProgressofMember(ctx context.Context, req *projectpb.GetProgressofMemberReq) (*projectpb.GetProgressofMemberRes, error) {
+
+	url := fmt.Sprintf("http://localhost:50005/project/task/stages?userID=%s&&projectID=%s", req.MemberID, req.ProjectID)
+	resStages, err := http.Get(url)
+	if err != nil {
+		helpers.PrintErr(err, "errro happened at calling http method")
+		return nil, err
+	}
+
+	var res entities.StageRes
+	if err := json.NewDecoder(resStages.Body).Decode(&res); err != nil {
+		helpers.PrintErr(err, "errro happened at decoding the json")
+		return nil, err
+	}
+
+	roleID, err := project.Usecase.GetRoleID(req.MemberID)
+	if err != nil {
+		helpers.PrintErr(err, "errro happened at GetRoleID usecase")
+		return nil, err
+	}
+
+	usrDetails, err := project.UserConn.GetUserDetails(ctx, &userpb.GetUserDetailsReq{
+		UserID: req.MemberID,
+		RoleID: uint32(roleID),
+	})
+	if err != nil {
+		helpers.PrintErr(err, "errro happened at GetUserDetails")
+		return nil, err
+	}
+
+	result, err := project.Usecase.GetProgressofMember(entities.UserProgressUsecaseRes{
+		MemberID:       req.MemberID,
+		ProjectID:      req.ProjectID,
+		TasksCompleted: uint32(res.Stages),
+	})
+	if err != nil {
+		helpers.PrintErr(err, "errro happened at GetProgressofMember usecase")
+		return nil, err
+	}
+
+	var ress projectpb.GetProgressofMemberRes
+
+	for _, v := range res.Details {
+		ress.Details = append(ress.Details, &projectpb.TaskDetails{
+			Key:              v.Key,
+			Description:      v.Description,
+			FileSnapshotName: v.Filename,
+		})
+	}
+	ress.Email = usrDetails.Email
+	ress.Name = usrDetails.Name
+	ress.Role = usrDetails.Role
+	ress.MemberID = result.MemberID
+	ress.Progress = result.Progress
+	ress.TaskDeadline = result.TaskDeadline
+	ress.TasksCompleted = result.TasksCompleted
+	ress.TasksLeft = result.TasksLeft
+
+	return &ress, nil
+
+}
+
+func (project *ProjectServiceServer) GetProgressofMembers(req *projectpb.GetProgressofMembersReq, stream projectpb.ProjectService_GetProgressofMembersServer) error {
+
+	url := fmt.Sprintf("http://localhost:50005/project/task/stages/count?projectID=%s", req.ProjectID)
+	resStages, err := http.Get(url)
+	if err != nil {
+		helpers.PrintErr(err, "errro happened at calling http method")
+		return err
+	}
+
+	var list entities.ListofUserProgress
+	if err := json.NewDecoder(resStages.Body).Decode(&list); err != nil {
+		helpers.PrintErr(err, "errro happened at decoding the json")
+		return err
+	}
+
+	res, statuses, roleIds, err := project.Usecase.GetProgressofMembers(list, req.ProjectID)
+	if err != nil {
+		helpers.PrintErr(err, "errro happened at GetProgressofMembers usecase")
+		return err
+	}
+
+	streaam, err := project.UserConn.GetStreamofUserDetails(context.Background())
+	if err != nil {
+		helpers.PrintErr(err, "errro happened at creating stream")
+		return err
+	}
+
+	for i := range res.UserAndProgress {
+
+		if err := streaam.Send(&userpb.GetUserDetailsReq{
+			UserID: res.UserAndProgress[i].UserID,
+			RoleID: uint32(roleIds[i]),
+		}); err != nil {
+			helpers.PrintErr(err, "errro happened at sending to stream")
+			return err
+		}
+
+		usrDetails, err := streaam.Recv()
+		if err != nil {
+			helpers.PrintErr(err, "errro happened at recieving from stream")
+			return err
+		}
+
+		if err := stream.Send(&projectpb.GetProgressofMembersRes{
+			MemberID:     usrDetails.UserID,
+			Email:        usrDetails.Email,
+			Name:         usrDetails.Name,
+			TaskDeadline: res.UserAndProgress[i].TaskDeadline,
+			Progress:     res.UserAndProgress[i].Progress,
+			TaskStatus:   statuses[i],
+			Role:         usrDetails.Role,
+		}); err != nil {
+			helpers.PrintErr(err, "errro happened at sending to stream")
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (project *ProjectServiceServer) GetProjectProgress(ctx context.Context, req *projectpb.GetProjectProgressReq) (*projectpb.GetProjectProgressRes, error) {
+
+	url := fmt.Sprintf("http://localhost:50005/project/task/stages/count?projectID=%s", req.ProjectID)
+	resStages, err := http.Get(url)
+	if err != nil {
+		helpers.PrintErr(err, "errro happened at calling http method")
+		return nil, err
+	}
+
+	var list entities.ListofUserProgress
+	if err := json.NewDecoder(resStages.Body).Decode(&list); err != nil {
+		helpers.PrintErr(err, "errro happened at decoding the json")
+		return nil, err
+	}
+
+	res, err := project.Usecase.GetProjectProgress(req.ProjectID, list)
+	if err != nil {
+		helpers.PrintErr(err, "errro happened at GetProjectProgress usecase")
+		return nil, err
+	}
+
+	return &projectpb.GetProjectProgressRes{
+		ProjectID:            res.ProjectID,
+		Progress:             res.Progress,
+		Deadline:             res.Deadline,
+		LiveMembers:          res.LiveMembers,
+		TaskCompletedMembers: res.TaskCompletedMembers,
+		TaskCriticalMembers:  res.TaskCriticalMembers,
+	}, nil
+}
+
+func (project *ProjectServiceServer) MarkProgressofNonTechnical(ctx context.Context, req *projectpb.MarkProgressofNonTechnicalReq) (*emptypb.Empty, error) {
+
+	if err := project.Usecase.InsertNonTechnicalTasks(entities.NonTechnicalTaskDetials{
+		UserID:      req.MemberID,
+		ProjectID:   req.ProjectID,
+		Task:        req.CompletedTask,
+		Description: req.Description,
+	}); err != nil {
+		helpers.PrintErr(err, "errro happened at InsertNonTechnicalTasks usecase")
+		return nil, err
+	}
+
+	return &emptypb.Empty{}, nil
 }

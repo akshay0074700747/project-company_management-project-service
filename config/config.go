@@ -12,6 +12,9 @@ type Config struct {
 	DBport     string
 	DBuser     string
 	DBpassword string
+	EndPoint   string
+	SecretKey  string
+	AccessKey  string
 }
 
 func LoadConfigurations() (Config, error) {
@@ -27,6 +30,9 @@ func LoadConfigurations() (Config, error) {
 	conf.DBname = os.Getenv("dbname")
 	conf.DBpassword = os.Getenv("dbpassword")
 	conf.DBuser = os.Getenv("dbuser")
+	conf.EndPoint = os.Getenv("endpoint")
+	conf.AccessKey = os.Getenv("accessKey")
+	conf.SecretKey = os.Getenv("secretKey")
 
 	return conf, nil
 }

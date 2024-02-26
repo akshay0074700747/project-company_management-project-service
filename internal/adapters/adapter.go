@@ -1,25 +1,31 @@
 package adapters
 
 import (
+	"context"
 	"errors"
+	"io"
+	"time"
 
 	"github.com/akshay0074700747/project-company_management-project-service/entities"
+	"github.com/minio/minio-go/v7"
 	"gorm.io/gorm"
 )
 
 type ProjectAdapter struct {
-	DB *gorm.DB
+	DB      *gorm.DB
+	MinioDB *minio.Client
 }
 
-func NewProjectAdapter(db *gorm.DB) *ProjectAdapter {
+func NewProjectAdapter(db *gorm.DB, minioDB *minio.Client) *ProjectAdapter {
 	return &ProjectAdapter{
-		DB: db,
+		DB:      db,
+		MinioDB: minioDB,
 	}
 }
 
 func (project *ProjectAdapter) CreateProject(req entities.Credentials, compID string) (entities.Credentials, error) {
 
-	query := "INSERT INTO credentials (project_username,name,aim,description,is_companybased) VALUES($1,$2,$3,$4,$5) RETURNING project_id,project_username,name,aim,description,is_companybased"
+	query := "INSERT INTO credentials (project_id,project_username,name,aim,description,is_companybased,is_public,deadline) VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING project_id,project_username,name,aim,description,is_companybased,is_public"
 	var res entities.Credentials
 
 	tx := project.DB.Begin()
@@ -29,7 +35,7 @@ func (project *ProjectAdapter) CreateProject(req entities.Credentials, compID st
 		}
 	}()
 
-	if err := project.DB.Raw(query, req.ProjectUsername, req.Name, req.Aim, req.Description, req.IsCompanybased).Scan(&res).Error; err != nil {
+	if err := project.DB.Raw(query, req.ProjectID, req.ProjectUsername, req.Name, req.Aim, req.Description, req.IsCompanybased, req.IsPublic, req.Deadline).Scan(&res).Error; err != nil {
 		tx.Rollback()
 		return res, err
 	}
@@ -77,7 +83,7 @@ func (project *ProjectAdapter) IsProjectUsernameExists(req string) (bool, error)
 
 func (project *ProjectAdapter) AddMember(req entities.Members) error {
 
-	query := "INSERT INTO members (member_id,project_id,role_id,permission_id) VALUES($1,$2,$3,$4)"
+	query := "INSERT INTO members (member_id,project_id,role_id,permission_id,status_id) VALUES($1,$2,$3,$4,(SELECT id FROM member_statuses WHERE status = 'PENDING'))"
 
 	tx := project.DB.Begin()
 	defer func() {
@@ -86,7 +92,7 @@ func (project *ProjectAdapter) AddMember(req entities.Members) error {
 		}
 	}()
 
-	if err := project.DB.Raw(query, req.MemberID, req.ProjectID, req.RoleID, req.PermissionID).Error; err != nil {
+	if err := project.DB.Exec(query, req.MemberID, req.ProjectID, req.RoleID, req.PermissionID).Error; err != nil {
 		tx.Rollback()
 		return err
 	}
@@ -97,11 +103,11 @@ func (project *ProjectAdapter) AddMember(req entities.Members) error {
 	return nil
 }
 
-func (project *ProjectAdapter) IsMemberExists(id string) (bool, error) {
+func (project *ProjectAdapter) IsMemberExists(id string, projID string) (bool, error) {
 
-	query := "SELECT * FROM members WHERE member_id = $1"
+	query := "SELECT * FROM members WHERE member_id = $1 AND project_id = $2"
 
-	res := project.DB.Exec(query, id)
+	res := project.DB.Exec(query, id, projID)
 	if res.Error != nil {
 		return true, res.Error
 	}
@@ -115,7 +121,7 @@ func (project *ProjectAdapter) IsMemberExists(id string) (bool, error) {
 
 func (project *ProjectAdapter) AcceptInvitation(req entities.Members) error {
 
-	query := "UPDATE members SET is_accepted = true WHERE member_id = $1 AND project_id = $2"
+	query := "UPDATE members SET status_id = (SELECT id FROM member_statuses WHERE status = 'ACCEPTED') WHERE member_id = $1 AND project_id = $2 "
 
 	res := project.DB.Exec(query, req.MemberID, req.ProjectID)
 	if res.Error != nil {
@@ -129,13 +135,264 @@ func (project *ProjectAdapter) AcceptInvitation(req entities.Members) error {
 	return nil
 }
 
-func (comp *ProjectAdapter) GetProjectInvites(memID string) ([]entities.ProjectInviteUsecase, error) {
+func (project *ProjectAdapter) DenyInvitation(req entities.Members) error {
 
-	query := "SELECT m.project_id, COUNT(*) AS accepted_members FROM members m JOIN members ma ON m.project_id = ma.project_id AND ma.member_id = $1 WHERE ma.is_accepted = TRUE GROUP BY m.project_id"
+	query := "UPDATE members SET status_id = (SELECT id FROM member_statuses WHERE status = 'REJECTED') WHERE member_id = $1 AND project_id = $2 "
+
+	res := project.DB.Exec(query, req.MemberID, req.ProjectID)
+	if res.Error != nil {
+		return res.Error
+	}
+
+	if res.RowsAffected == 0 {
+		return errors.New("the project id or userId doesnt exist")
+	}
+
+	return nil
+}
+
+func (project *ProjectAdapter) GetProjectInvites(memID string) ([]entities.ProjectInviteUsecase, error) {
+
+	query := "SELECT m.project_id, COUNT(*) AS accepted_members FROM members m JOIN members ma ON m.project_id = ma.project_id AND ma.member_id = $1 GROUP BY m.project_id"
 	var res []entities.ProjectInviteUsecase
 
-	if err := comp.DB.Raw(query, memID).Scan(&res).Error; err != nil {
+	if err := project.DB.Raw(query, memID).Scan(&res).Error; err != nil {
 		return nil, err
+	}
+	var ex string
+	for i, v := range res {
+		if err := project.DB.Raw("SELECT status FROM member_statuses INNER JOIN members ON member_statuses.id = members.status_id WHERE members.member_id = $1 AND members.project_id = $2", memID, v.ProjectID).Scan(&ex).Error; err != nil {
+			return res, err
+		}
+		if ex == "ACCEPTED" {
+			res = append(res[:i], res[i+1:]...)
+		}
+	}
+	return res, nil
+}
+
+func (project *ProjectAdapter) AddOwner(projectId, ownerID string) error {
+
+	query := "INSERT INTO owners (project_id,owner_id) VALUES($1,$2)"
+
+	if err := project.DB.Exec(query, projectId, ownerID).Error; err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (project *ProjectAdapter) GetNoofMembers(projectID string) (uint, error) {
+
+	query := "SELECT COUNT(*) FROM members WHERE project_id = $1 GROUP BY project_id"
+	var res uint
+
+	if err := project.DB.Raw(query, projectID).Scan(&res).Error; err != nil {
+		return res, err
+	}
+
+	return res, nil
+}
+
+func (project *ProjectAdapter) GetProjectDetails(projectID string) (entities.Credentials, error) {
+
+	query := "SELECT * FROM credentials WHERE project_id = $1"
+	var res entities.Credentials
+
+	if err := project.DB.Raw(query, projectID).Scan(&res).Error; err != nil {
+		return entities.Credentials{}, err
+	}
+
+	return res, nil
+}
+
+func (project *ProjectAdapter) GetProjectMembers(projID string) ([]entities.GetProjectMembersUsecase, error) {
+
+	query := "SELECT member_id AS user_id,role_id,permission_id FROM members WHERE project_id = $1"
+	var res []entities.GetProjectMembersUsecase
+
+	if err := project.DB.Raw(query, projID).Scan(&res).Error; err != nil {
+		return nil, err
+	}
+
+	return res, nil
+}
+
+func (project *ProjectAdapter) AddMemberStatueses(status string) error {
+
+	query := "INSERT INTO member_statuses (status) VALUES($1)"
+	if err := project.DB.Exec(query, status).Error; err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (project *ProjectAdapter) InsertTasktoMinio(ctx context.Context, fileName string, reader io.Reader, objectSize int64, opts minio.PutObjectOptions) error {
+
+	_, err := project.MinioDB.PutObject(ctx, "tasks-storage-bucket", fileName, reader, objectSize, opts)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (project *ProjectAdapter) InsertTaskDetails(req entities.TaskAssignations) error {
+
+	query := "INSERT INTO task_assignations (user_id,project_id,task,description,object_name,stages,deadline) VALUES($1,$2,$3,$4,$5,$6,$7)"
+	if err := project.DB.Exec(query, req.UserID, req.ProjectID, req.Task, req.Description, req.ObjectName, req.Stages, req.Deadline).Error; err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (project *ProjectAdapter) GetTaskFromMinio(ctx context.Context, objectName string, opts minio.GetObjectOptions) ([]byte, error) {
+
+	var res []byte
+	object, err := project.MinioDB.GetObject(ctx, "tasks-storage-bucket", objectName, opts)
+	if err != nil {
+		return nil, err
+	}
+
+	if _, err = object.Read(res); err != nil {
+		return nil, err
+	}
+
+	return res, nil
+}
+
+func (project *ProjectAdapter) GetTaskDetails(userID, projectID string) (entities.TaskAssignations, error) {
+
+	var res entities.TaskAssignations
+	query := "SELECT * FROM task_assignations WHERE user_id = $1 AND project_id = $2"
+
+	if err := project.DB.Raw(query, userID, project).Scan(&res).Error; err != nil {
+		return entities.TaskAssignations{}, err
+	}
+
+	return res, nil
+}
+
+func (project *ProjectAdapter) InsertStatuses(req entities.TaskStatuses) error {
+
+	query := "INSERT INTO task_statuses (status) VALUES($1)"
+	if err := project.DB.Exec(query, req.Status).Error; err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (project *ProjectAdapter) GetRoleID(usrID string) (uint, error) {
+
+	query := "SELECT role_id from members WHERE member_id = $1"
+	var role uint
+
+	if err := project.DB.Raw(query, usrID).Scan(&role).Error; err != nil {
+		return 0, err
+	}
+
+	return role, nil
+}
+
+func (project *ProjectAdapter) LogintoProject(projectID, memberID string) (entities.Members, error) {
+
+	query := "SELECT project_id,role_id,permission_id from members WHERE project_id = $1 AND member_id = $2"
+	var res entities.Members
+
+	if err := project.DB.Raw(query, projectID, memberID).Scan(&res).Error; err != nil {
+		return entities.Members{}, err
+	}
+
+	return res, nil
+}
+
+func (project *ProjectAdapter) GetIDfromName(usrName string) (string, error) {
+
+	query := "SELECT project_id FROM credentials WHERE project_username = $1"
+	var res string
+
+	if err := project.DB.Raw(query, usrName).Scan(&res).Error; err != nil {
+		return "", err
+	}
+
+	return res, nil
+}
+
+func (project *ProjectAdapter) GetStagesandDeadline(users []string, projectId string) ([]entities.TaskAssignations, error) {
+
+	var res []entities.TaskAssignations
+
+	if err := project.DB.Model(&entities.TaskAssignations{}).Where("user_id = ? AND project_id = ?", users, projectId).Error; err != nil {
+		return nil, err
+	}
+
+	return res, nil
+}
+
+func (project *ProjectAdapter) GetTaskStatuses(progresses []int) ([]string, error) {
+
+	var statuses []string
+	if err := project.DB.Model(&entities.TaskStatuses{}).Where("stat = ?", progresses).Pluck("status", &statuses).Error; err != nil {
+		return nil, err
+	}
+
+	return statuses, nil
+}
+
+func (project *ProjectAdapter) GetListofRoleIds(users []string, projectID string) ([]uint, error) {
+
+	var roleIds []uint
+	if err := project.DB.Model(&entities.Members{}).Where("member_id = ? AND project_id = ?", users, projectID).Pluck("role_id", &roleIds).Error; err != nil {
+		return nil, err
+	}
+
+	return roleIds, nil
+}
+
+func (project *ProjectAdapter) InsertNonTechnicalTasks(req entities.NonTechnicalTaskDetials) error {
+
+	query := "INSERT INTO non_technical_task_detials (project_id,user_id,task,description) VALUES($1,$2,$3,$4)"
+	if err := project.DB.Exec(query, req.ProjectID, req.UserID, req.Task, req.Description).Error; err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (project *ProjectAdapter) GetCountofLivemembers(projectID string) (int, error) {
+
+	query := "SELECT count(*) AS count FROM members WHERE project_id = $1 GROUP BY project_id "
+	var count int
+
+	if err := project.DB.Raw(query, projectID).Scan(&count).Error; err != nil {
+		return 0, nil
+	}
+
+	return count, nil
+}
+
+func (project *ProjectAdapter) GetProjectDeadline(projectID string) (time.Time, error) {
+
+	query := "SELECT deadline FROM credentials WHERE project_id = $1"
+	var res time.Time
+
+	if err := project.DB.Raw(query, projectID).Scan(&res).Error; err != nil {
+		return time.Time{}, err
+	}
+
+	return res, nil
+}
+
+func (project *ProjectAdapter) GetStagesofProgress(projectID, userID string) (int, error) {
+
+	query := "SELECT stages FROM task_assignations WHERE project_id = $1 AND user_id = $2"
+	var res int
+
+	if err := project.DB.Raw(query).Scan(&res).Error; err != nil {
+		return 0, err
 	}
 
 	return res, nil
