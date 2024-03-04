@@ -40,6 +40,12 @@ github.com/akshay0074700747/projectandCompany_management_protofiles v0.0.0-20240
 github.com/akshay0074700747/projectandCompany_management_protofiles v0.0.0-20240226044132-a5277e9db44b/go.mod h1:ha0hWcBD7MAUTiZOnLbec17eqFtMDdfr3d7rpORXhWo=
 github.com/akshay0074700747/projectandCompany_management_protofiles v0.0.0-20240226070028-0979e8a6b459 h1:acclCR1TT2wzM56rdOVN4VymxHu8LdyGVNAJ9cUQn8s=
 github.com/akshay0074700747/projectandCompany_management_protofiles v0.0.0-20240226070028-0979e8a6b459/go.mod h1:ha0hWcBD7MAUTiZOnLbec17eqFtMDdfr3d7rpORXhWo=
+github.com/akshay0074700747/projectandCompany_management_protofiles v0.0.0-20240229060123-9814e522c5d7 h1:xRPxSll1LfEmzBOFfuvIVeg5d8NcsNJwXWmm8Z040g0=
+github.com/akshay0074700747/projectandCompany_management_protofiles v0.0.0-20240229060123-9814e522c5d7/go.mod h1:ha0hWcBD7MAUTiZOnLbec17eqFtMDdfr3d7rpORXhWo=
+github.com/akshay0074700747/projectandCompany_management_protofiles v0.0.0-20240304090713-5426967bf5fa h1:EGtBVHQTdUmjO1XTq0XuOSYFjx6HEnzTmvkogFny/cA=
+github.com/akshay0074700747/projectandCompany_management_protofiles v0.0.0-20240304090713-5426967bf5fa/go.mod h1:ha0hWcBD7MAUTiZOnLbec17eqFtMDdfr3d7rpORXhWo=
+github.com/akshay0074700747/projectandCompany_management_protofiles v0.0.0-20240304101012-b3385df8b79b h1:QQVVxFlicW7/TByXLt+GfjirlYotBRRsTm8X14+ds/o=
+github.com/akshay0074700747/projectandCompany_management_protofiles v0.0.0-20240304101012-b3385df8b79b/go.mod h1:ha0hWcBD7MAUTiZOnLbec17eqFtMDdfr3d7rpORXhWo=
 github.com/antihax/optional v1.0.0/go.mod h1:uupD/76wgC+ih3iEmQUL+0Ugr19nfwCT1kdvxnR2qWY=
 github.com/census-instrumentation/opencensus-proto v0.2.1/go.mod h1:f6KPmirojxKA12rnyqOA5BBL4O983OfeGPqjHWSTneU=
 github.com/cespare/xxhash/v2 v2.1.1/go.mod h1:VGX0DQ3Q6kWi7AoAeZDth3/j3BFtOZR5XLFGgcrjCOs=
@@ -277,6 +283,8 @@ google.golang.org/genproto/googleapis/rpc v0.0.0-20240213162025-012b6fc9bca9 h1:
 google.golang.org/genproto/googleapis/rpc v0.0.0-20240213162025-012b6fc9bca9/go.mod h1:YUWgXUFRPfoYK1IHMuxH5K6nPEXSCzIMljnQ59lLRCk=
 google.golang.org/genproto/googleapis/rpc v0.0.0-20240221002015-b0ce06bbee7c h1:NUsgEN92SQQqzfA+YtqYNqYmB3DMMYLlIwUZAQFVFbo=
 google.golang.org/genproto/googleapis/rpc v0.0.0-20240221002015-b0ce06bbee7c/go.mod h1:H4O17MA/PE9BsGx3w+a+W2VOLLD1Qf7oJneAoU6WktY=
+google.golang.org/genproto/googleapis/rpc v0.0.0-20240228224816-df926f6c8641 h1:DKU1r6Tj5s1vlU/moGhuGz7E3xRfwjdAfDzbsaQJtEY=
+google.golang.org/genproto/googleapis/rpc v0.0.0-20240228224816-df926f6c8641/go.mod h1:UCOku4NytXMJuLQE5VuqA5lX3PcHCBo8pxNyvkf4xBs=
 google.golang.org/grpc v1.19.0/go.mod h1:mqu4LbDTu4XGKhr4mRzUsmM4RtVoemTSY81AxZiDr8c=
 google.golang.org/grpc v1.23.0/go.mod h1:Y5yQAOtifL1yxbo5wqy6BxZv8vAUGQwXBOALyacEbxg=
 google.golang.org/grpc v1.25.1/go.mod h1:c3i+UQWmh7LiEpx4sFZnkU36qjEYZ0imhYfXVyQciAY=

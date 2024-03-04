@@ -35,7 +35,11 @@ type ProjectAdapterInterfaces interface {
 	GetTaskStatuses([]int) ([]string, error)
 	GetListofRoleIds([]string, string) ([]uint, error)
 	InsertNonTechnicalTasks(entities.NonTechnicalTaskDetials) error
-	GetCountofLivemembers(string)(int,error)
-	GetProjectDeadline(string)(time.Time,error)
-	GetStagesofProgress(string,string)(int,error)
+	GetCountofLivemembers(string) (int, error)
+	GetProjectDeadline(string) (time.Time, error)
+	GetStagesofProgress(string, string) (int, error)
+	IsOwner(string, string) (bool, error)
+	IsCompanyBased(string)(bool,string,error)
+	MemberState(string,string)(string,error)
+	GetLiveProjectsofCompany(string)([]entities.GetLiveProjectsUsecase,error)
 }

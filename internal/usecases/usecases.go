@@ -48,12 +48,9 @@ func (project *ProjectUseCases) CreateProject(req entities.Credentials, compID, 
 		helpers.PrintErr(err, "error occured at CreateProject adapter")
 		return entities.Credentials{}, err
 	}
-
-	if !req.IsCompanybased {
-		if err = project.Adapter.AddOwner(res.ProjectID, ownerID); err != nil {
-			helpers.PrintErr(err, "error at AddOwner adapter")
-			return entities.Credentials{}, err
-		}
+	if err = project.Adapter.AddOwner(res.ProjectID, ownerID); err != nil {
+		helpers.PrintErr(err, "error at AddOwner adapter")
+		return entities.Credentials{}, err
 	}
 
 	return res, nil
@@ -108,12 +105,6 @@ func (project *ProjectUseCases) GetProjectInvites(memID string) ([]entities.Proj
 }
 
 func (project *ProjectUseCases) GetProjectDetails(projectID string, projectUsername string) (entities.ProjectDetailsUsecase, error) {
-
-	if projectID != "" {
-
-	} else {
-
-	}
 
 	cred, err := project.Adapter.GetProjectDetails(projectID)
 	if err != nil {
@@ -173,7 +164,7 @@ func (project *ProjectUseCases) AssignTasks(req entities.TaskDta) error {
 
 	if err = project.Adapter.InsertTaskDetails(entities.TaskAssignations{
 		UserID:      req.UserID,
-		ProjectID:   req.UserID,
+		ProjectID:   req.ProjectID,
 		Task:        req.Task,
 		Description: req.Description,
 		ObjectName:  objectName,
@@ -261,6 +252,8 @@ func (project *ProjectUseCases) LogintoProject(usrName, memberID string) (entiti
 		return entities.Members{}, err
 	}
 
+	res.ProjectID = projectId
+
 	return res, nil
 }
 
@@ -279,10 +272,11 @@ func (project *ProjectUseCases) GetProgressofMembers(req entities.ListofUserProg
 	var progresses []int
 	for i := range req.UserAndProgress {
 		req.UserAndProgress[i].TaskDeadline = res[i].Deadline.String()
-		progress := (req.UserAndProgress[i].Stages / res[i].Stages) * 100
-		req.UserAndProgress[i].Progress = (strconv.Itoa((progress)) + "%")
-		progress = progress - (progress % 10)
-		progresses = append(progresses, progress)
+		progress := (float32(req.UserAndProgress[i].Stages) / float32(res[i].Stages)) * 100
+		req.UserAndProgress[i].Progress = (strconv.Itoa((int(progress))) + "%")
+		progg := int(progress)
+		progg = progg - (progg % 10)
+		progresses = append(progresses, progg)
 	}
 
 	statuses, err := project.Adapter.GetTaskStatuses(progresses)
@@ -325,14 +319,15 @@ func (project *ProjectUseCases) GetProjectProgress(projectID string, req entitie
 		helpers.PrintErr(err, "errror happened at GetCountofLivemembers adapter")
 		return entities.GetProjectProgressUsecase{}, err
 	}
-	var fullCompleted, lessCompleted, sum int
+	var fullCompleted, lessCompleted int
+	var sum float32
 	for _, v := range req.UserAndProgress {
 		ttStages, err := project.Adapter.GetStagesofProgress(projectID, v.UserID)
 		if err != nil {
 			helpers.PrintErr(err, "errror happened at GetStagesofProgress adapter")
 			return entities.GetProjectProgressUsecase{}, err
 		}
-		progress := (v.Stages / ttStages) * 100
+		progress := (float32(v.Stages) / float32(ttStages)) * 100
 		if progress == 100 {
 			fullCompleted++
 		} else if progress < 30 {
@@ -345,7 +340,61 @@ func (project *ProjectUseCases) GetProjectProgress(projectID string, req entitie
 	result.LiveMembers = uint32(members)
 	result.TaskCompletedMembers = uint32(fullCompleted)
 	result.TaskCriticalMembers = uint32(lessCompleted)
-	result.Progress = (strconv.Itoa((int(sum / len(req.UserAndProgress)))) + "%")
+	result.Progress = (strconv.Itoa((int(sum / float32(len(req.UserAndProgress))))) + "%")
 
 	return result, nil
+}
+
+func (project *ProjectUseCases) IsOwner(user_id, project_id string) (bool, error) {
+
+	res, err := project.Adapter.IsOwner(user_id, project_id)
+	if err != nil {
+		helpers.PrintErr(err, "error at IsOwner adapter")
+		return false, err
+	}
+
+	if res {
+		return true, nil
+	}
+	return false, nil
+}
+
+func (proj *ProjectUseCases) IsCompanyBased(projID string) (bool, string, error) {
+
+	isCompanybased, companyID, err := proj.Adapter.IsCompanyBased(projID)
+	if err != nil {
+		return false, "", err
+	}
+
+	if companyID == "" || !isCompanybased {
+		return false, "", nil
+	}
+
+	return true, companyID, nil
+}
+
+func (proj *ProjectUseCases) IsMemberAccepted(userID, projectID string) error {
+
+	state, err := proj.Adapter.MemberState(userID, projectID)
+	if err != nil {
+		helpers.PrintErr(err, "error happened at MemberState adapter")
+		return err
+	}
+
+	if state != "ACCEPTED" {
+		return errors.New("the member is not accepted the project invitation")
+	}
+
+	return nil
+}
+
+func (project *ProjectUseCases) GetLiveProjectsofCompany(compID string) ([]entities.GetLiveProjectsUsecase, error) {
+
+	res, err := project.Adapter.GetLiveProjectsofCompany(compID)
+	if err != nil {
+		helpers.PrintErr(err, "error happened at GetLiveProjectsofCompany adapter")
+		return nil, err
+	}
+
+	return res, nil
 }

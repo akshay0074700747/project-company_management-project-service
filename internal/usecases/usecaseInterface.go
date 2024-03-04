@@ -20,4 +20,8 @@ type ProjectUsecaseInterfaces interface {
 	GetProgressofMembers(entities.ListofUserProgress, string) (entities.ListofUserProgress, []string, []uint, error)
 	InsertNonTechnicalTasks(entities.NonTechnicalTaskDetials) error
 	GetProjectProgress(string,entities.ListofUserProgress)(entities.GetProjectProgressUsecase,error)
+	IsOwner(string, string) (bool, error)
+	IsCompanyBased(string)(bool,string,error)
+	IsMemberAccepted(string,string)(error)
+	GetLiveProjectsofCompany(string) ([]entities.GetLiveProjectsUsecase, error)
 }

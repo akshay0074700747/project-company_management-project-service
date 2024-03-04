@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 
 	"github.com/akshay0074700747/project-company_management-project-service/entities"
@@ -77,11 +78,29 @@ func (project *ProjectServiceServer) AcceptProjectInvite(ctx context.Context, re
 
 func (project *ProjectServiceServer) AddMembers(ctx context.Context, req *projectpb.AddMemberReq) (*emptypb.Empty, error) {
 
+	isCompanybased, companyID, err := project.Usecase.IsCompanyBased(req.ProjectID)
+	if err != nil {
+		helpers.PrintErr(err, "error at IsCompanyBased usecase")
+		return nil, err
+	}
 	res, err := project.UserConn.GetByEmail(ctx, &userpb.GetByEmailReq{
 		Email: req.Email,
 	})
 	if err != nil {
 		return nil, errors.New("cannot connect to user-service now please try again later")
+	}
+
+	if isCompanybased {
+		res, err := project.CompanyConn.IsEmployeeExists(ctx, &companypb.IsEmployeeExistsReq{
+			CompanyID:  companyID,
+			EmployeeID: res.UserID,
+		})
+		if err != nil {
+			return nil, err
+		}
+		if !res.Exists {
+			return nil, errors.New("the employee doesnt exist in the company")
+		}
 	}
 
 	if err := project.Usecase.Addmembers(entities.Members{
@@ -140,7 +159,7 @@ func (project *ProjectServiceServer) GetProjectMembers(req *projectpb.GetProject
 		return err
 	}
 
-	streaam,err := project.UserConn.GetStreamofUserDetails(context.TODO())
+	streaam, err := project.UserConn.GetStreamofUserDetails(context.TODO())
 	if err != nil {
 		helpers.PrintErr(err, "error at GetStreamofUserDetails usecase")
 		return err
@@ -156,16 +175,17 @@ func (project *ProjectServiceServer) GetProjectMembers(req *projectpb.GetProject
 			return err
 		}
 
-		details,err := streaam.Recv()
+		details, err := streaam.Recv()
 		if err != nil {
 			helpers.PrintErr(err, "error at recieving to stream")
 			return err
 		}
 
 		if err := stream.Send(&projectpb.GetProjectMembersRes{
-			Email: details.Email,
-			Name: details.Name,
-			Role: details.Role,
+			UserID:       details.UserID,
+			Email:        details.Email,
+			Name:         details.Name,
+			Role:         details.Role,
 			PermissionID: uint32(v.PermissionID),
 		}); err != nil {
 			helpers.PrintErr(err, "error at sending stream")
@@ -182,6 +202,27 @@ func (project *ProjectServiceServer) LogintoProject(ctx context.Context, req *pr
 	if err != nil {
 		helpers.PrintErr(err, "error at sending stream")
 		return nil, err
+	}
+
+	fmt.Println(res, "----result")
+	fmt.Println(req.MemberID, "----request id")
+
+	isOwnerbool, err := project.Usecase.IsOwner(req.MemberID, res.ProjectID)
+	if err != nil {
+		helpers.PrintErr(err, "error at IsOwner usecase")
+		return nil, err
+	}
+
+	if isOwnerbool {
+		return &projectpb.LogintoProjectRes{
+			ProjectID:  res.ProjectID,
+			Permission: "ROOT",
+			Role:       "OWNER",
+		}, nil
+	}
+
+	if res.ProjectID == "" || res.PermissionID == 0 || res.RoleID == 0 {
+		return nil, errors.New("the projectuseranme doesnt exist or user is not part of the project")
 	}
 
 	compRes, err := project.CompanyConn.GetPermission(ctx, &companypb.GetPermisssionReq{
@@ -219,7 +260,7 @@ func (project *ProjectServiceServer) AddMemberStatus(ctx context.Context, req *p
 
 func (project *ProjectServiceServer) DownloadTask(ctx context.Context, req *projectpb.DownloadTaskReq) (*projectpb.DownloadTaskRes, error) {
 
-	task, err := project.Usecase.GetTaskDetails(req.ProjectID, req.UserID)
+	task, err := project.Usecase.GetTaskDetails(req.UserID, req.ProjectID)
 	if err != nil {
 		helpers.PrintErr(err, "error happed at GetTaskDetails usecase")
 		return nil, err
@@ -243,7 +284,7 @@ func (project *ProjectServiceServer) DownloadTask(ctx context.Context, req *proj
 
 func (project *ProjectServiceServer) GetAssignedTask(ctx context.Context, req *projectpb.GetAssignedTaskReq) (*projectpb.GetAssignedTaskRes, error) {
 
-	task, err := project.Usecase.GetTaskDetails(req.ProjectID, req.UserID)
+	task, err := project.Usecase.GetTaskDetails(req.UserID, req.ProjectID)
 	if err != nil {
 		helpers.PrintErr(err, "error happed at GetTaskDetails usecase")
 		return nil, err
@@ -437,4 +478,88 @@ func (project *ProjectServiceServer) MarkProgressofNonTechnical(ctx context.Cont
 	}
 
 	return &emptypb.Empty{}, nil
+}
+
+func (project *ProjectServiceServer) IsMemberAccepted(ctx context.Context, req *projectpb.IsMemberAcceptedReq) (*emptypb.Empty, error) {
+
+	if err := project.Usecase.IsMemberAccepted(req.UserID, req.ProjectID); err != nil {
+		helpers.PrintErr(err, "errro happened at IsMemberAccepted usecase")
+		return nil, err
+	}
+
+	return &emptypb.Empty{}, nil
+}
+
+func (project *ProjectServiceServer) GetLiveProjects(req *projectpb.GetLiveProjectsReq, stream projectpb.ProjectService_GetLiveProjectsServer) error {
+
+	res, err := project.Usecase.GetLiveProjectsofCompany(req.CompanyID)
+	if err != nil {
+		helpers.PrintErr(err, "error happened at GetLiveProjectsofCompany usecase")
+		return err
+	}
+
+	streaam, err := project.CompanyConn.GetStreamofClients(context.Background())
+	if err != nil {
+		helpers.PrintErr(err, "error happened at GetStreamofClients")
+		return err
+	}
+
+	for _, v := range res {
+		if err = streaam.Send(&companypb.GetStreamofClientsReq{
+			CompanyID: req.CompanyID,
+			ProjectID: v.ProjectID,
+		}); err != nil {
+			helpers.PrintErr(err, "error happened at sending to stream")
+			return err
+		}
+
+		id, err := streaam.Recv()
+		if err != nil {
+			helpers.PrintErr(err, "error happened at recieving from stream")
+			return err
+		}
+
+		if err = stream.Send(&projectpb.GetLiveProjectsRes{
+			ProjectID:          v.ProjectID,
+			ProjectUsername:    v.ProjectUsername,
+			ProjectDescription: v.ProjectDescription,
+			MembersWorking:     uint32(v.Members),
+			ClientID:           id.ClientID,
+		}); err != nil {
+			helpers.PrintErr(err, "error happened at sendin to stream")
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (project *ProjectServiceServer) GetStreamofProjectDetails(stream projectpb.ProjectService_GetStreamofProjectDetailsServer) error {
+
+	for {
+		req, err := stream.Recv()
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			helpers.PrintErr(err, "error happened at sending to stream")
+			return err
+		}
+		res, err := project.Usecase.GetProjectDetails(req.ProjectID, "")
+		if err != nil {
+			helpers.PrintErr(err, "error happened at GetProjectDetails usecase")
+			return err
+		}
+
+		if err := stream.Send(&projectpb.GetProjectDetailesRes{
+			ProjectID:       res.ProjectID,
+			ProjectUsername: res.ProjectUsername,
+			Aim:             res.Aim,
+		}); err != nil {
+			helpers.PrintErr(err, "error happened at sending to stream")
+			return err
+		}
+	}
+
+	return nil
 }

@@ -14,8 +14,8 @@ func Initialize(cfg config.Config) *services.ProjectEngine {
 	minioDB := db.ConnectMinio(cfg)
 	adapter := adapters.NewProjectAdapter(dbPostgres, minioDB)
 	usecase := usecases.NewProjectUseCases(adapter)
-	server := services.NewProjectServiceServer(usecase, ":50001",":50003")
-	server.StartConsuming()
+	server := services.NewProjectServiceServer(usecase, ":50001", ":50003")
+	go server.StartConsuming()
 
 	return services.NewProjectEngine(server)
 }

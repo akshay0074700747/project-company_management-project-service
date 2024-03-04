@@ -75,3 +75,10 @@ type GetProjectMembersUsecase struct {
 	RoleID       uint
 	PermissionID uint
 }
+
+type GetLiveProjectsUsecase struct {
+	ProjectID          string
+	ProjectUsername    string
+	ProjectDescription string
+	Members    uint
+}

@@ -17,7 +17,8 @@ func (project *ProjectServiceServer) StartConsuming() {
 		"bootstrap.servers":  "localhost:9092",
 		"group.id":           "taskConsumers",
 		"auto.offset.reset":  "earliest",
-		"enable.auto.commit": "false"})
+		"enable.auto.commit": "false",
+		"allow.auto.create.topics": true})
 	if err != nil {
 		helpers.PrintErr(err, "error occured at creating a kafka consumer")
 		return
