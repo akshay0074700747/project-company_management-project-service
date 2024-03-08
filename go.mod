@@ -24,18 +24,18 @@ require (
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/rs/xid v1.5.0 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
-	golang.org/x/crypto v0.19.0 // indirect
-	golang.org/x/net v0.21.0 // indirect
-	golang.org/x/sys v0.17.0 // indirect
+	golang.org/x/crypto v0.21.0 // indirect
+	golang.org/x/net v0.22.0 // indirect
+	golang.org/x/sys v0.18.0 // indirect
 	golang.org/x/text v0.14.0 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20240228224816-df926f6c8641 // indirect
-	google.golang.org/grpc v1.62.0 // indirect
-	google.golang.org/protobuf v1.32.0 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20240304212257-790db918fca8 // indirect
+	google.golang.org/grpc v1.62.1 // indirect
+	google.golang.org/protobuf v1.33.0 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 )
 
 require (
-	github.com/akshay0074700747/projectandCompany_management_protofiles v0.0.0-20240304101012-b3385df8b79b
+	github.com/akshay0074700747/projectandCompany_management_protofiles v0.0.0-20240305153253-6ee7cd909cf4
 	github.com/confluentinc/confluent-kafka-go v1.9.2
 	github.com/google/uuid v1.6.0
 	github.com/jinzhu/inflection v1.0.0 // indirect

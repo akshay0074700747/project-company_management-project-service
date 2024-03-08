@@ -460,10 +460,134 @@ func (proj *ProjectAdapter) MemberState(userID, projectID string) (string, error
 
 func (project *ProjectAdapter) GetLiveProjectsofCompany(compID string) ([]entities.GetLiveProjectsUsecase, error) {
 
-	query := "SELECT c.project_id,c.project_username,c.description,COUNT(*) FROM credentials c INNER JOIN companies es ON es.project_id = c.project_id AND es.company_id = $1 RIGHT JOIN members m ON m.project_id = c.project_id INNER JOIN member_statuses ms ON ms.id = m.status_id AND ms.status = 'ACCEPTED' GROUP BY (c.project_id,c.project_username,c.description)"
+	/* query := "SELECT c.project_id,c.project_username,c.description,COUNT(*) FROM credentials c INNER JOIN companies es ON es.project_id = c.project_id AND es.company_id = $1 RIGHT JOIN members m ON m.project_id = c.project_id INNER JOIN member_statuses ms ON ms.id = m.status_id AND ms.status = 'ACCEPTED' GROUP BY ////(c.project_id,c.project_username,c.description)" */
+	query := "SELECT c.project_id,c.project_username,c.description FROM credentials c INNER JOIN companies es ON es.project_id = c.project_id AND es.company_id = $1"
 	var res []entities.GetLiveProjectsUsecase
 
 	if err := project.DB.Raw(query, compID).Scan(&res).Error; err != nil {
+		return nil, err
+	}
+
+	return res, nil
+}
+
+func (project *ProjectAdapter) GetCompletedMembers(projectID string, users []string) ([]entities.GetCompletedMemebersAdapter, error) {
+
+	var res []entities.GetCompletedMemebersAdapter
+	if err := project.DB.Model(&entities.TaskAssignations{}).Where("project_id = ? AND user_id = ?", projectID, users).Pluck("stages,is_verified", &res).Error; err != nil {
+		return nil, err
+	}
+
+	return res, nil
+}
+
+func (project *ProjectAdapter) RaiseIssue(req entities.Issues) error {
+
+	query := "INSERT INTO issues (project_id,user_id,description,raiser_id) VALUES($1,$2,$3,$4)"
+	if err := project.DB.Exec(query, req.ProjectID, req.UserID, req.Description, req.RaiserID).Error; err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (proj *ProjectAdapter) GetIssuesofMember(projecID, userID string) (entities.Issues, error) {
+
+	var res entities.Issues
+	query := "SELECT * FROM issues WHERE project_id = $1 AND user_id = $2"
+
+	if err := proj.DB.Raw(query, projecID, userID).Scan(&res).Error; err != nil {
+		return entities.Issues{}, err
+	}
+
+	return res, nil
+}
+
+func (proj *ProjectAdapter) GetIssuesofProject(projectID string) ([]entities.Issues, error) {
+
+	var res []entities.Issues
+	query := "SELECT * FROM issues WHERE project_id = $1"
+
+	if err := proj.DB.Raw(query, projectID).Scan(&res).Error; err != nil {
+		return nil, err
+	}
+
+	return res, nil
+}
+
+func (proj *ProjectAdapter) RateTask(req entities.Ratings) error {
+
+	query := "INSERT INTO ratings (project_id,user_id,rating,feedback) VALUES($1,$2,$3,$4)"
+
+	if err := proj.DB.Exec(query, req.ProjectID, req.UserID, req.Rating, req.Feedback).Error; err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (proj *ProjectAdapter) GetRating(projectID, userID string) (entities.Ratings, error) {
+
+	query := "SELECT * FROM ratings WHERE project_id = $1 AND user_id = $2"
+	var res entities.Ratings
+
+	if err := proj.DB.Raw(query, projectID, userID).Scan(&res).Error; err != nil {
+		return entities.Ratings{}, err
+	}
+
+	return res, nil
+}
+
+func (proj *ProjectAdapter) AskExtension(req entities.Extensions) error {
+
+	query := "INSERT INTO extensions (project_id,user_id,extend_to,description) VALUES($1,$2,$3,$4)"
+	if err := proj.DB.Exec(query, req.ProjectID, req.UserID, req.ExtendTo, req.Description).Error; err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (proj *ProjectAdapter) GetExtensionRequestsinaProject(projectID string) ([]entities.Extensions, error) {
+
+	var res []entities.Extensions
+	query := "SELECT * FROM extensions WHERE project_id = $1"
+
+	if err := proj.DB.Raw(query, projectID).Scan(&res).Error; err != nil {
+		return nil, err
+	}
+
+	return res, nil
+}
+
+func (proj *ProjectAdapter) ApproveExtensionRequest(id uint, isGranted bool) error {
+
+	query := "UPDATE extensions SET is_accepted = $1 WHERE id = $2"
+
+	if err := proj.DB.Exec(query, isGranted, id).Error; err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (proj *ProjectAdapter) VerifyTaskCompletion(projectID, memberID string, verified bool) error {
+
+	query := "UPDATE task_assignations SET is_verified = $1 WHERE project_id = $2 AND user_id = $3"
+
+	if err := proj.DB.Exec(query, verified, projectID, memberID).Error; err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (proj *ProjectAdapter) GetVerifiedTasks(projectID string) ([]entities.VerifiedTasksUsecase, error) {
+
+	var res []entities.VerifiedTasksUsecase
+	query := "select t.user_id,r.rating,r.feedback FROM task_assignations t INNER JOIN ratings r ON r.project_id = $1 AND r.user_id = t.user_id WHERE t.project_id = $1 AND is_verified = true"
+
+	if err := proj.DB.Raw(query, projectID).Scan(&res).Error; err != nil {
 		return nil, err
 	}
 

@@ -44,6 +44,7 @@ type TaskAssignations struct {
 	ObjectName  string `gorm:"unique"`
 	Stages      int
 	Deadline    time.Time
+	IsVerified bool `gorm:"default:false"`
 }
 
 type TaskStatuses struct {
@@ -57,4 +58,29 @@ type NonTechnicalTaskDetials struct {
 	ProjectID   string `gorm:"foreignKey:ProjectID;references:credentials(project_id)"`
 	Task        string
 	Description string
+}
+
+type Issues struct {
+	ID          uint   `gorm:"primaryKey"`
+	ProjectID   string `gorm:"foreignKey:ProjectID;references:credentials(project_id)"`
+	UserID      string
+	Description string
+	RaiserID    string
+}
+
+type Ratings struct {
+	ID        uint   `gorm:"primaryKey"`
+	ProjectID string `gorm:"foreignKey:ProjectID;references:credentials(project_id)"`
+	UserID    string
+	Rating    float32
+	Feedback  string
+}
+
+type Extensions struct {
+	ID          uint   `gorm:"primaryKey"`
+	ProjectID   string `gorm:"foreignKey:ProjectID;references:credentials(project_id)"`
+	UserID      string
+	ExtendTo time.Time
+	Description string
+	IsAccepted  bool `gorm:"default:false"`
 }

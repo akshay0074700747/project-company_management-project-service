@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"time"
 
 	"github.com/akshay0074700747/project-company_management-project-service/entities"
 	"github.com/akshay0074700747/project-company_management-project-service/helpers"
@@ -503,6 +504,8 @@ func (project *ProjectServiceServer) GetLiveProjects(req *projectpb.GetLiveProje
 		helpers.PrintErr(err, "error happened at GetStreamofClients")
 		return err
 	}
+	
+	fmt.Println(res)
 
 	for _, v := range res {
 		if err = streaam.Send(&companypb.GetStreamofClientsReq{
@@ -559,6 +562,295 @@ func (project *ProjectServiceServer) GetStreamofProjectDetails(stream projectpb.
 			helpers.PrintErr(err, "error happened at sending to stream")
 			return err
 		}
+	}
+
+	return nil
+}
+
+func (project *ProjectServiceServer) GetCompletedMembers(req *projectpb.GetCompletedMembersReq, stream projectpb.ProjectService_GetCompletedMembersServer) error {
+
+	url := fmt.Sprintf("http://localhost:50005/project/task/stages/count?projectID=%s", req.ProjectID)
+	resStages, err := http.Get(url)
+	if err != nil {
+		helpers.PrintErr(err, "errro happened at calling http method")
+		return err
+	}
+
+	var list entities.ListofUserProgress
+	if err := json.NewDecoder(resStages.Body).Decode(&list); err != nil {
+		helpers.PrintErr(err, "errro happened at decoding the json")
+		return err
+	}
+
+	users, err := project.Usecase.GetCompletedMembers(req.ProjectID, list, true)
+	streaam, err := project.UserConn.GetStreamofUserDetails(context.TODO())
+	if err != nil {
+		helpers.PrintErr(err, "erorr happened at GetStreamofUserDetails")
+	}
+
+	for _, v := range users {
+
+		if err = streaam.Send(&userpb.GetUserDetailsReq{
+			UserID: v.UserID,
+		}); err != nil {
+			helpers.PrintErr(err, "error happened at sending to stream")
+			return err
+		}
+
+		details, err := streaam.Recv()
+		if err != nil {
+			helpers.PrintErr(err, "error happened at recieving from stream")
+		}
+
+		if err = stream.Send(&projectpb.GetCompletedMembersRes{
+			UserID:     details.UserID,
+			Email:      details.Email,
+			Name:       details.Name,
+			IsVerified: v.IsVerified,
+		}); err != nil {
+			helpers.PrintErr(err, "error hsppened at sending to stream")
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (project *ProjectServiceServer) GetCriticalMembers(req *projectpb.GetCriticalMembersReq, stream projectpb.ProjectService_GetCriticalMembersServer) error {
+
+	url := fmt.Sprintf("http://localhost:50005/project/task/stages/count?projectID=%s", req.ProjectID)
+	resStages, err := http.Get(url)
+	if err != nil {
+		helpers.PrintErr(err, "errro happened at calling http method")
+		return err
+	}
+
+	var list entities.ListofUserProgress
+	if err := json.NewDecoder(resStages.Body).Decode(&list); err != nil {
+		helpers.PrintErr(err, "errro happened at decoding the json")
+		return err
+	}
+
+
+	users, err := project.Usecase.GetCompletedMembers(req.ProjectID, list, false)
+	streaam, err := project.UserConn.GetStreamofUserDetails(context.TODO())
+	if err != nil {
+		helpers.PrintErr(err, "erorr happened at GetStreamofUserDetails")
+	}
+
+	for _, v := range users {
+
+		if err = streaam.Send(&userpb.GetUserDetailsReq{
+			UserID: v.UserID,
+		}); err != nil {
+			helpers.PrintErr(err, "error happened at sending to stream")
+			return err
+		}
+
+		details, err := streaam.Recv()
+		if err != nil {
+			helpers.PrintErr(err, "error happened at recieving from stream")
+		}
+
+		if err = stream.Send(&projectpb.GetCriticalMembersRes{
+			UserID: details.UserID,
+			Email:  details.Email,
+			Name:   details.Name,
+		}); err != nil {
+			helpers.PrintErr(err, "error hsppened at sending to stream")
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (project *ProjectServiceServer) RaiseIssue(ctx context.Context, req *projectpb.RaiseIssueReq) (*emptypb.Empty, error) {
+
+	if err := project.Usecase.RaiseIssue(entities.Issues{
+		ProjectID:   req.ProjectID,
+		UserID:      req.MemberID,
+		Description: req.Description,
+		RaiserID:    req.RaiserID,
+	}); err != nil {
+		helpers.PrintErr(err, "error happened at RaiseIssue usecase")
+		return nil, err
+	}
+
+	return &emptypb.Empty{}, nil
+}
+
+func (project *ProjectServiceServer) GetIssues(ctx context.Context, req *projectpb.GetIssuesReq) (*projectpb.GetIssuesRes, error) {
+
+	res, err := project.Usecase.GetIssuesofMember(req.ProjectID, req.MemberID)
+	if err != nil {
+		helpers.PrintErr(err, "erorr happened at GetIssuesofMember usecase")
+		return nil, err
+	}
+
+	return &projectpb.GetIssuesRes{
+		RaisedBy:    res.RaiserID,
+		Description: res.Description,
+	}, nil
+}
+
+func (proj *ProjectServiceServer) GetIssuesofProject(req *projectpb.GetIssuesofProjectReq, stream projectpb.ProjectService_GetIssuesofProjectServer) error {
+
+	res, err := proj.Usecase.GetIssuesofProject(req.ProjectID)
+	if err != nil {
+		helpers.PrintErr(err, "error happened at GetIssuesofProject usecase")
+		return err
+	}
+
+	streaam, err := proj.UserConn.GetStreamofUserDetails(context.TODO())
+	if err != nil {
+		helpers.PrintErr(err, "error happened at GetStreamofUserDetails usecase")
+		return err
+	}
+
+	for _, v := range res {
+
+		if err = streaam.Send(&userpb.GetUserDetailsReq{
+			UserID: v.UserID,
+		}); err != nil {
+			helpers.PrintErr(err, "error happened at sending to stream")
+			return err
+		}
+
+		details, err := streaam.Recv()
+		if err != nil {
+			helpers.PrintErr(err, "error happened at recieving from sttream")
+			return err
+		}
+
+		if err = stream.Send(&projectpb.GetIssuesofProjectRes{
+			MemberID:    details.UserID,
+			Email:       details.Email,
+			Name:        details.Name,
+			RaisedBy:    v.RaiserID,
+			Description: v.Description,
+		}); err != nil {
+			helpers.PrintErr(err, "error happened at sending to stream")
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (proj *ProjectServiceServer) RateTask(ctx context.Context, req *projectpb.RateTaskReq) (*emptypb.Empty, error) {
+
+	if err := proj.Usecase.RateTask(entities.Ratings{
+		ProjectID: req.ProjectID,
+		UserID:    req.MemberID,
+		Rating:    req.Rating,
+		Feedback:  req.Feedback,
+	}); err != nil {
+		helpers.PrintErr(err, "error happened at RateTask usecase")
+		return nil, err
+	}
+
+	return &emptypb.Empty{}, nil
+}
+
+func (proj *ProjectServiceServer) GetfeedBackforTask(ctx context.Context, req *projectpb.GetfeedBackforTaskReq) (*projectpb.GetfeedBackforTaskRes, error) {
+
+	res, err := proj.Usecase.GetRating(req.ProjectID, req.MemberID)
+	if err != nil {
+		helpers.PrintErr(err, "error happened at GetRating usecase")
+		return nil, err
+	}
+
+	return &projectpb.GetfeedBackforTaskRes{
+		Rating:   res.Rating,
+		Feedback: res.Feedback,
+	}, nil
+}
+
+func (proj *ProjectServiceServer) RequestforDeadlineExtension(ctx context.Context, req *projectpb.RequestforDeadlineExtensionReq) (*emptypb.Empty, error) {
+
+	time, err := time.Parse("2006-01-02", req.ExetendTo)
+	if err != nil {
+		helpers.PrintErr(err, "error happened at parsing the time")
+		return &emptypb.Empty{}, err
+	}
+
+	if err = proj.Usecase.AskExtension(entities.Extensions{
+		ProjectID:   req.ProjectID,
+		UserID:      req.MemberID,
+		ExtendTo:    time,
+		Description: req.Description,
+	}); err != nil {
+		helpers.PrintErr(err, "error happened at AskExtension usecase")
+		return &emptypb.Empty{}, err
+	}
+
+	return &emptypb.Empty{}, nil
+}
+
+func (proj *ProjectServiceServer) GetExtensionRequests(req *projectpb.GetExtensionRequestsReq, stream projectpb.ProjectService_GetExtensionRequestsServer) error {
+
+	res, err := proj.Usecase.GetExtensionRequestsinaProject(req.ProjectID)
+	if err != nil {
+		helpers.PrintErr(err, "error happened at GetExtensionRequestsinaProject usecase")
+		return err
+	}
+
+	for _, v := range res {
+
+		if err := stream.Send(&projectpb.GetExtensionRequestsRes{
+			ID:          uint32(v.ID),
+			MemberID:    v.UserID,
+			ExetendTo:   v.ExtendTo.String(),
+			Description: v.Description,
+		}); err != nil {
+			helpers.PrintErr(err, "error happened at sending to stream")
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (proj *ProjectServiceServer) GrantExtension(ctx context.Context, req *projectpb.GrantExtensionReq) (*emptypb.Empty, error) {
+
+	if err := proj.Usecase.ApproveExtensionRequest(uint(req.ID), req.IsApproved); err != nil {
+		helpers.PrintErr(err, "error happened at ApproveExtensionRequest usecase")
+		return nil, err
+	}
+
+	return &emptypb.Empty{}, nil
+}
+
+func (proj *ProjectServiceServer) VerifyTaskCompletion(ctx context.Context, req *projectpb.VerifyTaskCompletionReq) (*emptypb.Empty, error) {
+
+	if err := proj.Usecase.VerifyTaskCompletion(req.ProjectID, req.MemberID, req.Verified); err != nil {
+		helpers.PrintErr(err, "error happened at VerifyTaskCompletion usecase")
+		return nil, err
+	}
+
+	return &emptypb.Empty{}, nil
+}
+
+func (proj *ProjectServiceServer) GetVerifiedTasks(req *projectpb.GetVerifiedTasksReq, stream projectpb.ProjectService_GetVerifiedTasksServer) error {
+
+	res, err := proj.Usecase.GetVerifiedTasks(req.ProjectID)
+	if err != nil {
+		helpers.PrintErr(err, "error happenede at GetVerifiedTasks usecase")
+		return err
+	}
+
+	for _, v := range res {
+
+		if err = stream.Send(&projectpb.GetVerifiedTasksRes{
+			MemberID: v.MemberID,
+			Rating:   v.Rating,
+			Feedback: v.Feedback,
+		}); err != nil {
+			helpers.PrintErr(err, "error happened at sending to stream")
+			return err
+		}
+
 	}
 
 	return nil

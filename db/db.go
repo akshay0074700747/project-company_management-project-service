@@ -31,6 +31,9 @@ func ConnectDB(cfg config.Config) *gorm.DB {
 	db.AutoMigrate(&entities.TaskAssignations{})
 	db.AutoMigrate(&entities.TaskStatuses{})
 	db.AutoMigrate(&entities.NonTechnicalTaskDetials{})
+	db.AutoMigrate(&entities.Issues{})
+	db.AutoMigrate(&entities.Ratings{})
+	db.AutoMigrate(&entities.Extensions{})
 
 	return db
 }

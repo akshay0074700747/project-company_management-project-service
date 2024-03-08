@@ -398,3 +398,156 @@ func (project *ProjectUseCases) GetLiveProjectsofCompany(compID string) ([]entit
 
 	return res, nil
 }
+
+func (project *ProjectUseCases) GetCompletedMembers(projectID string, req entities.ListofUserProgress, isFromCompleted bool) ([]entities.GetCompletedMemebersUsecase, error) {
+
+	var userIds []string
+	var result []entities.GetCompletedMemebersUsecase
+
+	for _, v := range req.UserAndProgress {
+		userIds = append(userIds, v.UserID)
+	}
+
+	res, err := project.Adapter.GetCompletedMembers(projectID, userIds)
+	if err != nil {
+		helpers.PrintErr(err, "error happened at GetCompletedMembers adapter")
+		return nil, err
+	}
+
+	if isFromCompleted {
+
+		for i, v := range res {
+
+			progress := (req.UserAndProgress[i].Stages / v.Stages)
+			if progress == 1 {
+				result = append(result, entities.GetCompletedMemebersUsecase{
+					UserID:     req.UserAndProgress[i].UserID,
+					IsVerified: v.IsVerified,
+				})
+			}
+
+		}
+
+	} else {
+
+		for i, v := range res {
+
+			progress := (float32(req.UserAndProgress[i].Stages) / float32(v.Stages))
+			if progress <= 0.3 {
+				result = append(result, entities.GetCompletedMemebersUsecase{
+					UserID:     req.UserAndProgress[i].UserID,
+					IsVerified: v.IsVerified,
+				})
+			}
+
+		}
+
+	}
+
+	return result, nil
+}
+
+func (project *ProjectUseCases) RaiseIssue(req entities.Issues) error {
+
+	if err := project.Adapter.RaiseIssue(req); err != nil {
+		helpers.PrintErr(err, "error happened at RaiseIssue adapter")
+		return err
+	}
+
+	return nil
+}
+
+func (proj *ProjectUseCases) GetIssuesofMember(projectID, userID string) (entities.Issues, error) {
+
+	res, err := proj.Adapter.GetIssuesofMember(projectID, userID)
+	if err != nil {
+		helpers.PrintErr(err, "error happened at GetIssuesofMember adapter")
+		return entities.Issues{}, err
+	}
+
+	return res, nil
+}
+
+func (proj *ProjectUseCases) GetIssuesofProject(projID string) ([]entities.Issues, error) {
+
+	res, err := proj.Adapter.GetIssuesofProject(projID)
+	if err != nil {
+		helpers.PrintErr(err, "error happened at GetIssuesofProject adpaters")
+		return nil, err
+	}
+
+	return res, nil
+}
+
+func (proj *ProjectUseCases) RateTask(req entities.Ratings) error {
+
+	if err := proj.Adapter.RateTask(req); err != nil {
+		helpers.PrintErr(err, "error happened at RateTask adapter")
+		return err
+	}
+
+	return nil
+}
+
+func (proj *ProjectUseCases) GetRating(projectID, userID string) (entities.Ratings, error) {
+
+	res, err := proj.Adapter.GetRating(projectID, userID)
+	if err != nil {
+		helpers.PrintErr(err, "error happened at GetRating adapter")
+		return entities.Ratings{}, err
+	}
+
+	return res, nil
+}
+
+func (proj *ProjectUseCases) AskExtension(req entities.Extensions) error {
+
+	if err := proj.Adapter.AskExtension(req); err != nil {
+		helpers.PrintErr(err, "error happened at AskExtension adapter")
+		return err
+	}
+
+	return nil
+}
+
+func (proj *ProjectUseCases) GetExtensionRequestsinaProject(projectID string) ([]entities.Extensions, error) {
+
+	res, err := proj.Adapter.GetExtensionRequestsinaProject(projectID)
+	if err != nil {
+		helpers.PrintErr(err, "error happened at GetExtensionRequestsinaProject adapter")
+		return nil, err
+	}
+
+	return res, nil
+}
+
+func (proj *ProjectUseCases) ApproveExtensionRequest(id uint, isAccepted bool) error {
+
+	if err := proj.Adapter.ApproveExtensionRequest(id, isAccepted); err != nil {
+		helpers.PrintErr(err, "eroror happened at ApproveExtensionRequest adapter")
+		return err
+	}
+
+	return nil
+}
+
+func (proj *ProjectUseCases) VerifyTaskCompletion(projectID, userID string, verified bool) error {
+
+	if err := proj.Adapter.VerifyTaskCompletion(projectID, userID, verified); err != nil {
+		helpers.PrintErr(err, "errro happened at VerifyTaskCompletion adapter")
+		return err
+	}
+
+	return nil
+}
+
+func (proj *ProjectUseCases) GetVerifiedTasks(projectID string) ([]entities.VerifiedTasksUsecase, error) {
+
+	res, err := proj.Adapter.GetVerifiedTasks(projectID)
+	if err != nil {
+		helpers.PrintErr(err, "error happerned at GetVerifiedTasks adapter")
+		return nil, err
+	}
+
+	return res, nil
+}

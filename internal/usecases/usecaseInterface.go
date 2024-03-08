@@ -19,9 +19,20 @@ type ProjectUsecaseInterfaces interface {
 	LogintoProject(string, string) (entities.Members, error)
 	GetProgressofMembers(entities.ListofUserProgress, string) (entities.ListofUserProgress, []string, []uint, error)
 	InsertNonTechnicalTasks(entities.NonTechnicalTaskDetials) error
-	GetProjectProgress(string,entities.ListofUserProgress)(entities.GetProjectProgressUsecase,error)
+	GetProjectProgress(string, entities.ListofUserProgress) (entities.GetProjectProgressUsecase, error)
 	IsOwner(string, string) (bool, error)
-	IsCompanyBased(string)(bool,string,error)
-	IsMemberAccepted(string,string)(error)
+	IsCompanyBased(string) (bool, string, error)
+	IsMemberAccepted(string, string) error
 	GetLiveProjectsofCompany(string) ([]entities.GetLiveProjectsUsecase, error)
+	GetCompletedMembers(string, entities.ListofUserProgress,bool) ([]entities.GetCompletedMemebersUsecase, error)
+	RaiseIssue(entities.Issues) error
+	GetIssuesofMember(string,string)(entities.Issues,error)
+	GetIssuesofProject(string)([]entities.Issues, error)
+	RateTask(entities.Ratings)(error)
+	GetRating(string,string) (entities.Ratings, error)
+	AskExtension(entities.Extensions) error
+	GetExtensionRequestsinaProject(string)([]entities.Extensions,error)
+	ApproveExtensionRequest(uint,bool)(error)
+	VerifyTaskCompletion(string,string,bool)(error)
+	GetVerifiedTasks(string)([]entities.VerifiedTasksUsecase,error)
 }

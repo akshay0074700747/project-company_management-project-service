@@ -80,5 +80,21 @@ type GetLiveProjectsUsecase struct {
 	ProjectID          string
 	ProjectUsername    string
 	ProjectDescription string
-	Members    uint
+	Members            uint
+}
+
+type GetCompletedMemebersUsecase struct {
+	UserID     string
+	IsVerified bool
+}
+
+type GetCompletedMemebersAdapter struct {
+	Stages     int
+	IsVerified bool
+}
+
+type VerifiedTasksUsecase struct {
+	MemberID string
+	Rating   float32
+	Feedback string
 }
