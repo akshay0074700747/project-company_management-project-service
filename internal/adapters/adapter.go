@@ -336,7 +336,7 @@ func (project *ProjectAdapter) GetStagesandDeadline(users []string, projectId st
 
 	var res []entities.TaskAssignations
 
-	if err := project.DB.Model(&entities.TaskAssignations{}).Where("user_id = ? AND project_id = ?", users, projectId).Scan(&res).Error; err != nil {
+	if err := project.DB.Model(&entities.TaskAssignations{}).Where("user_id IN ? AND project_id = ?", users, projectId).Scan(&res).Error; err != nil {
 		return nil, err
 	}
 
@@ -346,7 +346,7 @@ func (project *ProjectAdapter) GetStagesandDeadline(users []string, projectId st
 func (project *ProjectAdapter) GetTaskStatuses(progresses []int) ([]string, error) {
 
 	var statuses []string
-	if err := project.DB.Model(&entities.TaskStatuses{}).Where("stat = ?", progresses).Pluck("status", &statuses).Error; err != nil {
+	if err := project.DB.Model(&entities.TaskStatuses{}).Where("stat IN ?", progresses).Pluck("status", &statuses).Error; err != nil {
 		return nil, err
 	}
 
@@ -356,7 +356,7 @@ func (project *ProjectAdapter) GetTaskStatuses(progresses []int) ([]string, erro
 func (project *ProjectAdapter) GetListofRoleIds(users []string, projectID string) ([]uint, error) {
 
 	var roleIds []uint
-	if err := project.DB.Model(&entities.Members{}).Where("member_id = ? AND project_id = ?", users, projectID).Pluck("role_id", &roleIds).Error; err != nil {
+	if err := project.DB.Model(&entities.Members{}).Where("member_id IN ? AND project_id = ?", users, projectID).Pluck("role_id", &roleIds).Error; err != nil {
 		return nil, err
 	}
 
@@ -474,7 +474,7 @@ func (project *ProjectAdapter) GetLiveProjectsofCompany(compID string) ([]entiti
 func (project *ProjectAdapter) GetCompletedMembers(projectID string, users []string) ([]entities.GetCompletedMemebersAdapter, error) {
 
 	var res []entities.GetCompletedMemebersAdapter
-	if err := project.DB.Model(&entities.TaskAssignations{}).Where("project_id = ? AND user_id = ?", projectID, users).Pluck("stages,is_verified", &res).Error; err != nil {
+	if err := project.DB.Model(&entities.TaskAssignations{}).Where("project_id = ? AND user_id IN ?", projectID, users).Pluck("stages,is_verified", &res).Error; err != nil {
 		return nil, err
 	}
 
@@ -573,9 +573,9 @@ func (proj *ProjectAdapter) ApproveExtensionRequest(id uint, isGranted bool) err
 
 func (proj *ProjectAdapter) VerifyTaskCompletion(projectID, memberID string, verified bool) error {
 
-	query := "UPDATE task_assignations SET is_verified = $1 WHERE project_id = $2 AND user_id = $3"
+	query := "UPDATE task_assignations SET is_verified = true WHERE project_id = $1 AND user_id = $2"
 
-	if err := proj.DB.Exec(query, verified, projectID, memberID).Error; err != nil {
+	if err := proj.DB.Exec(query, projectID, memberID).Error; err != nil {
 		return err
 	}
 
@@ -585,11 +585,68 @@ func (proj *ProjectAdapter) VerifyTaskCompletion(projectID, memberID string, ver
 func (proj *ProjectAdapter) GetVerifiedTasks(projectID string) ([]entities.VerifiedTasksUsecase, error) {
 
 	var res []entities.VerifiedTasksUsecase
-	query := "select t.user_id,r.rating,r.feedback FROM task_assignations t INNER JOIN ratings r ON r.project_id = $1 AND r.user_id = t.user_id WHERE t.project_id = $1 AND is_verified = true"
+	query := "SELECT t.user_id,r.rating,r.feedback FROM task_assignations t INNER JOIN ratings r ON r.project_id = $1 AND r.user_id = t.user_id WHERE t.project_id = $1 AND is_verified = true"
 
 	if err := proj.DB.Raw(query, projectID).Scan(&res).Error; err != nil {
 		return nil, err
 	}
 
 	return res, nil
+}
+
+func (proj *ProjectAdapter) DropProject(projID string) error {
+
+	if err := proj.DB.Unscoped().Delete(&entities.Credentials{}, "project_id = ?", projID).Error; err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (proj *ProjectAdapter) EditProject(req entities.Credentials) error {
+
+	if err := proj.DB.Model(&entities.Credentials{}).Where("project_id = ?", req.ProjectID).Updates(req).Error; err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (proj *ProjectAdapter) EditMember(req entities.Members) error {
+
+	if err := proj.DB.Model(&entities.Members{}).Where("project_id = $1 AND member_id = $2", req.ProjectID, req.MemberID).Updates(req).Error; err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (proj *ProjectAdapter) EditFeedback(req entities.Ratings) error {
+
+	if err := proj.DB.Model(&entities.Ratings{}).Where("project_id = $1 AND user_id = $2", req.ProjectID, req.UserID).Updates(req).Error; err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (proj *ProjectAdapter) DeleteFeedback(projectID, memberID string) error {
+
+	if err := proj.DB.Unscoped().Delete(&entities.Ratings{}, "project_id = $1 AND user_id", projectID, memberID).Error; err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (proj *ProjectAdapter) GetCountMembers(projectID string) (uint, error) {
+
+	query := "SELECT COUNT(*) FROM members m INNER JOIN member_statuses ms ON m.status_id = ms.id AND ms.status = 'ACCEPTED' WHERE project_id = $1 GROUP BY project_id"
+	var count uint
+
+	if err := proj.DB.Raw(query, projectID).Scan(&count).Error; err != nil {
+		return 0, err
+	}
+
+	return count, nil
 }

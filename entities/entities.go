@@ -15,10 +15,10 @@ type Credentials struct {
 
 type Members struct {
 	MemberID     string
-	ProjectID    string `gorm:"foreignKey:ProjectID;references:credentials(project_id)"`
+	ProjectID    string `gorm:"foreignKey:ProjectID;references:credentials(project_id);constraint:OnDelete:CASCADE"`
 	RoleID       uint
 	PermissionID uint
-	StatusID     uint `gorm:"foreignKey:StatusID;references:member_statuses(id)"`
+	StatusID     uint `gorm:"foreignKey:StatusID;references:member_statuses(id);constraint:OnDelete:CASCADE"`
 }
 
 type MemberStatus struct {
@@ -28,23 +28,23 @@ type MemberStatus struct {
 
 type Companies struct {
 	CompanyID string
-	ProjectID string `gorm:"foreignKey:ProjectID;references:credentials(project_id)"`
+	ProjectID string `gorm:"foreignKey:ProjectID;references:credentials(project_id);constraint:OnDelete:CASCADE"`
 }
 
 type Owners struct {
-	ProjectID string `gorm:"foreignKey:ProjectID;references:credentials(project_id)"`
+	ProjectID string `gorm:"foreignKey:ProjectID;references:credentials(project_id);constraint:OnDelete:CASCADE"`
 	OwnerID   string
 }
 
 type TaskAssignations struct {
 	UserID      string
-	ProjectID   string `gorm:"foreignKey:ProjectID;references:credentials(project_id)"`
+	ProjectID   string `gorm:"foreignKey:ProjectID;references:credentials(project_id);constraint:OnDelete:CASCADE"`
 	Task        string
 	Description string
 	ObjectName  string `gorm:"unique"`
 	Stages      int
 	Deadline    time.Time
-	IsVerified bool `gorm:"default:false"`
+	IsVerified  bool `gorm:"default:false"`
 }
 
 type TaskStatuses struct {
@@ -55,14 +55,14 @@ type TaskStatuses struct {
 
 type NonTechnicalTaskDetials struct {
 	UserID      string
-	ProjectID   string `gorm:"foreignKey:ProjectID;references:credentials(project_id)"`
+	ProjectID   string `gorm:"foreignKey:ProjectID;references:credentials(project_id);constraint:OnDelete:CASCADE"`
 	Task        string
 	Description string
 }
 
 type Issues struct {
 	ID          uint   `gorm:"primaryKey"`
-	ProjectID   string `gorm:"foreignKey:ProjectID;references:credentials(project_id)"`
+	ProjectID   string `gorm:"foreignKey:ProjectID;references:credentials(project_id);constraint:OnDelete:CASCADE"`
 	UserID      string
 	Description string
 	RaiserID    string
@@ -70,7 +70,7 @@ type Issues struct {
 
 type Ratings struct {
 	ID        uint   `gorm:"primaryKey"`
-	ProjectID string `gorm:"foreignKey:ProjectID;references:credentials(project_id)"`
+	ProjectID string `gorm:"foreignKey:ProjectID;references:credentials(project_id);constraint:OnDelete:CASCADE"`
 	UserID    string
 	Rating    float32
 	Feedback  string
@@ -78,9 +78,9 @@ type Ratings struct {
 
 type Extensions struct {
 	ID          uint   `gorm:"primaryKey"`
-	ProjectID   string `gorm:"foreignKey:ProjectID;references:credentials(project_id)"`
+	ProjectID   string `gorm:"foreignKey:ProjectID;references:credentials(project_id);constraint:OnDelete:CASCADE"`
 	UserID      string
-	ExtendTo time.Time
+	ExtendTo    time.Time
 	Description string
 	IsAccepted  bool `gorm:"default:false"`
 }

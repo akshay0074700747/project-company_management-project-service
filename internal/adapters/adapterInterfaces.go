@@ -53,4 +53,10 @@ type ProjectAdapterInterfaces interface {
 	ApproveExtensionRequest(uint,bool)(error)
 	VerifyTaskCompletion(string,string,bool)(error)
 	GetVerifiedTasks(string)([]entities.VerifiedTasksUsecase,error)
+	DropProject(string)(error)
+	EditProject(entities.Credentials)(error)
+	EditMember(entities.Members)(error)
+	EditFeedback(entities.Ratings)(error)
+	DeleteFeedback(string,string)(error)
+	GetCountMembers(string) (uint,error)
 }

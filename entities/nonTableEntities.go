@@ -98,3 +98,10 @@ type VerifiedTasksUsecase struct {
 	Rating   float32
 	Feedback string
 }
+
+type Responce struct {
+	StatusCode int         `json:"StatusCode,omitempty"`
+	Message    string      `json:"Message,omitempty"`
+	Error      error       `json:"Error,omitempty"`
+	Data       interface{} `json:"Data,omitempty"`
+}

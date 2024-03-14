@@ -104,6 +104,33 @@ func (project *ProjectServiceServer) AddMembers(ctx context.Context, req *projec
 		}
 	}
 
+	count,err := project.Usecase.GetCountMembers(req.ProjectID)
+	if err != nil {
+		helpers.PrintErr(err, "error at GetCountMembers usecase")
+		return nil, err
+	}
+
+	if count > 10 {
+
+		url := fmt.Sprintf("http://localhost:50007/transaction/project?assetID=%s", req.ProjectID)
+		resStages, err := http.Get(url)
+		if err != nil {
+			helpers.PrintErr(err, "errro happened at calling http method")
+			return nil, err
+		}
+	
+		var ress entities.Responce
+		if err := json.NewDecoder(resStages.Body).Decode(&ress); err != nil {
+			helpers.PrintErr(err, "errro happened at decoding the json")
+			return nil, err
+		}
+	
+		if !ress.Data.(bool) {
+			helpers.PrintErr(err, "errro happened at decoding the json")
+			return nil, errors.New("you need to purchase premium for adding more than 10 members")
+		}
+	}
+
 	if err := project.Usecase.Addmembers(entities.Members{
 		MemberID:     res.UserID,
 		ProjectID:    req.ProjectID,
@@ -504,7 +531,7 @@ func (project *ProjectServiceServer) GetLiveProjects(req *projectpb.GetLiveProje
 		helpers.PrintErr(err, "error happened at GetStreamofClients")
 		return err
 	}
-	
+
 	fmt.Println(res)
 
 	for _, v := range res {
@@ -630,7 +657,6 @@ func (project *ProjectServiceServer) GetCriticalMembers(req *projectpb.GetCritic
 		helpers.PrintErr(err, "errro happened at decoding the json")
 		return err
 	}
-
 
 	users, err := project.Usecase.GetCompletedMembers(req.ProjectID, list, false)
 	streaam, err := project.UserConn.GetStreamofUserDetails(context.TODO())
@@ -854,4 +880,74 @@ func (proj *ProjectServiceServer) GetVerifiedTasks(req *projectpb.GetVerifiedTas
 	}
 
 	return nil
+}
+
+func (project *ProjectServiceServer) DropProject(ctx context.Context, req *projectpb.DropProjectReq) (*emptypb.Empty, error) {
+
+	if err := project.Usecase.DropProject(req.ProjectID); err != nil {
+		helpers.PrintErr(err, "error happpneed at DropProject usecase")
+		return nil, err
+	}
+
+	return &emptypb.Empty{}, nil
+}
+
+func (project *ProjectServiceServer) TerminateProjectMembers(ctx context.Context, req *projectpb.TerminateProjectMembersReq) (*emptypb.Empty, error) {
+	// redis
+}
+
+func (project *ProjectServiceServer) EditProjectDetails(ctx context.Context, req *projectpb.EditProjectDetailsReq) (*emptypb.Empty, error) {
+
+	if err := project.Usecase.EditProject(entities.Credentials{
+		ProjectID:       req.ProjectID,
+		Description:     req.Description,
+		ProjectUsername: req.ProjectUsername,
+		Aim:             req.Aim,
+		Name:            req.Name,
+	}); err != nil {
+		helpers.PrintErr(err, "error happened at EditProject usecase")
+		return nil, err
+	}
+
+	return &emptypb.Empty{}, nil
+}
+
+func (project *ProjectServiceServer) EditMember(ctx context.Context, req *projectpb.EditMemberReq) (*emptypb.Empty, error) {
+
+	if err := project.Usecase.EditMember(entities.Members{
+		MemberID:     req.MemberID,
+		PermissionID: uint(req.PermissionID),
+		RoleID:       uint(req.RoleID),
+		ProjectID:    req.ProjectID,
+	}); err != nil {
+		helpers.PrintErr(err, "error happened at EditMember usecase")
+		return nil, err
+	}
+
+	return &emptypb.Empty{}, nil
+}
+
+func (project *ProjectServiceServer) EditFeedback(ctx context.Context, req *projectpb.EditFeedbackReq) (*emptypb.Empty, error) {
+
+	if err := project.Usecase.EditFeedback(entities.Ratings{
+		ProjectID: req.ProjectID,
+		UserID:    req.MemberID,
+		Rating:    req.Rating,
+		Feedback:  req.Feedback,
+	}); err != nil {
+		helpers.PrintErr(err, "error happened at EditFeedback usecase")
+		return nil, err
+	}
+
+	return &emptypb.Empty{}, nil
+}
+
+func (project *ProjectServiceServer) DeleteFeedback(ctx context.Context, req *projectpb.DeleteFeedbackReq) (*emptypb.Empty, error) {
+
+	if err := project.Usecase.DeleteFeedback(req.ProjectID, req.MemberID); err != nil {
+		helpers.PrintErr(err, "error happened at DeleteFeedback usecase")
+		return nil, err
+	}
+
+	return &emptypb.Empty{}, nil
 }

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"strconv"
 
 	"github.com/akshay0074700747/project-company_management-project-service/entities"
@@ -416,7 +417,13 @@ func (project *ProjectUseCases) GetCompletedMembers(projectID string, req entiti
 
 	if isFromCompleted {
 
+		fmt.Println(len(res), "hvkjghj")
+		fmt.Println(len(req.UserAndProgress), "dkhvlcjewoij")
+
 		for i, v := range res {
+			if i >= len(req.UserAndProgress) {
+				break
+			}
 
 			progress := (req.UserAndProgress[i].Stages / v.Stages)
 			if progress == 1 {
@@ -550,4 +557,64 @@ func (proj *ProjectUseCases) GetVerifiedTasks(projectID string) ([]entities.Veri
 	}
 
 	return res, nil
+}
+
+func (proj *ProjectUseCases) DropProject(projectID string) error {
+
+	if er := proj.Adapter.DropProject(projectID); er != nil {
+		helpers.PrintErr(er, "error happened at DropProject adapter")
+		return er
+	}
+
+	return nil
+}
+
+func (proj *ProjectUseCases) EditProject(req entities.Credentials) error {
+
+	if err := proj.Adapter.EditProject(req); err != nil {
+		helpers.PrintErr(err, "error happened at EditProject adapter")
+		return err
+	}
+
+	return nil
+}
+
+func (proj *ProjectUseCases) EditMember(req entities.Members) error {
+
+	if err := proj.Adapter.EditMember(req); err != nil {
+		helpers.PrintErr(err, "error happened at EditMember adapter")
+		return err
+	}
+
+	return nil
+}
+
+func (proj *ProjectUseCases) EditFeedback(req entities.Ratings) error {
+	if err := proj.Adapter.EditFeedback(req); err != nil {
+		helpers.PrintErr(err, "error happened at EditFeedback adapter")
+		return err
+	}
+
+	return nil
+}
+
+func (proj *ProjectUseCases) DeleteFeedback(projectID, userID string) error {
+
+	if err := proj.Adapter.DeleteFeedback(projectID, userID); err != nil {
+		helpers.PrintErr(err, "error happened at DeleteFeedback adapter")
+		return err
+	}
+
+	return nil
+}
+
+func (proj *ProjectUseCases) GetCountMembers(projectID string) (uint,error) {
+	
+	res,err := proj.Adapter.GetCountMembers(projectID)
+	if err != nil {
+		helpers.PrintErr(err,"error happened at GetCountMembers adapter")
+		return 0,err
+	}
+
+	return res,err
 }
