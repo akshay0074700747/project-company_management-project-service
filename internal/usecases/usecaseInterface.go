@@ -41,4 +41,6 @@ type ProjectUsecaseInterfaces interface {
 	EditFeedback(entities.Ratings)(error)
 	DeleteFeedback(string,string)(error)
 	GetCountMembers(string)(uint,error)
+	IsMemberExists(string, string) (bool, error)
+	TerminateProjectMembers(string,string)(error)
 }

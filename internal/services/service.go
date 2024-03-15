@@ -15,6 +15,8 @@ import (
 	"github.com/akshay0074700747/projectandCompany_management_protofiles/pb/companypb"
 	"github.com/akshay0074700747/projectandCompany_management_protofiles/pb/projectpb"
 	"github.com/akshay0074700747/projectandCompany_management_protofiles/pb/userpb"
+	"github.com/confluentinc/confluent-kafka-go/kafka"
+	"github.com/go-redis/redis/v8"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -23,16 +25,27 @@ type ProjectServiceServer struct {
 	Usecase     usecases.ProjectUsecaseInterfaces
 	UserConn    userpb.UserServiceClient
 	CompanyConn companypb.CompanyServiceClient
+	Producer    *kafka.Producer
+	Topic       string
+	Cache       *redis.Client
 	projectpb.UnimplementedProjectServiceServer
 }
 
-func NewProjectServiceServer(usecase usecases.ProjectUsecaseInterfaces, usraddr, compaddr string) *ProjectServiceServer {
+func NewProjectServiceServer(usecase usecases.ProjectUsecaseInterfaces, usraddr, compaddr, topic string, producer *kafka.Producer) *ProjectServiceServer {
 	userRes, _ := helpers.DialGrpc(usraddr)
 	compRes, _ := helpers.DialGrpc(compaddr)
+	rdb := redis.NewClient(&redis.Options{
+		Addr:     "localhost:6379", // Redis server address
+		Password: "",               // No password set
+		DB:       0,                // Use default DB
+	})
 	return &ProjectServiceServer{
 		Usecase:     usecase,
 		UserConn:    userpb.NewUserServiceClient(userRes),
 		CompanyConn: companypb.NewCompanyServiceClient(compRes),
+		Topic:       topic,
+		Producer:    producer,
+		Cache:       rdb,
 	}
 }
 
@@ -104,7 +117,7 @@ func (project *ProjectServiceServer) AddMembers(ctx context.Context, req *projec
 		}
 	}
 
-	count,err := project.Usecase.GetCountMembers(req.ProjectID)
+	count, err := project.Usecase.GetCountMembers(req.ProjectID)
 	if err != nil {
 		helpers.PrintErr(err, "error at GetCountMembers usecase")
 		return nil, err
@@ -118,13 +131,13 @@ func (project *ProjectServiceServer) AddMembers(ctx context.Context, req *projec
 			helpers.PrintErr(err, "errro happened at calling http method")
 			return nil, err
 		}
-	
+
 		var ress entities.Responce
 		if err := json.NewDecoder(resStages.Body).Decode(&ress); err != nil {
 			helpers.PrintErr(err, "errro happened at decoding the json")
 			return nil, err
 		}
-	
+
 		if !ress.Data.(bool) {
 			helpers.PrintErr(err, "errro happened at decoding the json")
 			return nil, errors.New("you need to purchase premium for adding more than 10 members")
@@ -893,7 +906,17 @@ func (project *ProjectServiceServer) DropProject(ctx context.Context, req *proje
 }
 
 func (project *ProjectServiceServer) TerminateProjectMembers(ctx context.Context, req *projectpb.TerminateProjectMembersReq) (*emptypb.Empty, error) {
-	// redis
+
+	if err := project.Usecase.TerminateProjectMembers(req.MemberID, req.MemberID); err != nil {
+		helpers.PrintErr(err, "error happened at TerminateProjectMembers usecase")
+		return nil, err
+	}
+
+	if err := project.Cache.Del(ctx, req.ProjectID+" "+req.MemberID).Err(); err != nil {
+		helpers.PrintErr(err, "eroror happened at clearing cache")
+	}
+
+	return &emptypb.Empty{}, nil
 }
 
 func (project *ProjectServiceServer) EditProjectDetails(ctx context.Context, req *projectpb.EditProjectDetailsReq) (*emptypb.Empty, error) {
@@ -950,4 +973,36 @@ func (project *ProjectServiceServer) DeleteFeedback(ctx context.Context, req *pr
 	}
 
 	return &emptypb.Empty{}, nil
+}
+
+func (project *ProjectServiceServer) GetUserStat(ctx context.Context, req *projectpb.GetUserStatReq) (*projectpb.GetUserStatRes, error) {
+
+	res, err := project.Usecase.IsMemberExists(req.UserID, req.ProjectID)
+	if err != nil {
+		helpers.PrintErr(err, "error happened at IsMemberExists usecase")
+		return nil, err
+	}
+
+	if !res {
+
+		ress, err := project.Usecase.IsOwner(req.UserID, req.ProjectID)
+		if err != nil {
+			helpers.PrintErr(err, "error happened at IsOwner usecase")
+			return nil, err
+		}
+
+		if !ress {
+			return &projectpb.GetUserStatRes{
+				IsAcceptable: false,
+			}, nil
+		}
+		return &projectpb.GetUserStatRes{
+			IsAcceptable: true,
+		}, nil
+
+	}
+
+	return &projectpb.GetUserStatRes{
+		IsAcceptable: true,
+	}, nil
 }

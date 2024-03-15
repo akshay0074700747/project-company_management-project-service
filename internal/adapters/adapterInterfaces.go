@@ -59,4 +59,5 @@ type ProjectAdapterInterfaces interface {
 	EditFeedback(entities.Ratings)(error)
 	DeleteFeedback(string,string)(error)
 	GetCountMembers(string) (uint,error)
+	TerminateProjectMembers(string,string)(error)
 }

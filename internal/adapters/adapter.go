@@ -106,7 +106,7 @@ func (project *ProjectAdapter) AddMember(req entities.Members) error {
 
 func (project *ProjectAdapter) IsMemberExists(id string, projID string) (bool, error) {
 
-	query := "SELECT * FROM members WHERE member_id = $1 AND project_id = $2"
+	query := "SELECT * FROM members INNER JOIN member_statuses ON status_id = id AND status = 'ACCEPTED' WHERE member_id = $1 AND project_id = $2"
 
 	res := project.DB.Exec(query, id, projID)
 	if res.Error != nil {
@@ -649,4 +649,15 @@ func (proj *ProjectAdapter) GetCountMembers(projectID string) (uint, error) {
 	}
 
 	return count, nil
+}
+
+func (proj *ProjectAdapter) TerminateProjectMembers(userID, projID string) error {
+
+	query := "UPDATE members SET status_id = (SELECT id FROM member_statuses WHERE status = 'TERMINATED') WHERE member_id = $1 AND project_id = $2"
+
+	if err := proj.DB.Exec(query, userID, projID).Error; err != nil {
+		return err
+	}
+
+	return nil
 }

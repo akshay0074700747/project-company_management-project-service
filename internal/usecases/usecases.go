@@ -608,13 +608,34 @@ func (proj *ProjectUseCases) DeleteFeedback(projectID, userID string) error {
 	return nil
 }
 
-func (proj *ProjectUseCases) GetCountMembers(projectID string) (uint,error) {
-	
-	res,err := proj.Adapter.GetCountMembers(projectID)
+func (proj *ProjectUseCases) GetCountMembers(projectID string) (uint, error) {
+
+	res, err := proj.Adapter.GetCountMembers(projectID)
 	if err != nil {
-		helpers.PrintErr(err,"error happened at GetCountMembers adapter")
-		return 0,err
+		helpers.PrintErr(err, "error happened at GetCountMembers adapter")
+		return 0, err
 	}
 
-	return res,err
+	return res, err
+}
+
+func (proj *ProjectUseCases) IsMemberExists(userID, projectID string) (bool, error) {
+
+	res, err := proj.Adapter.IsMemberExists(userID, projectID)
+	if err != nil {
+		helpers.PrintErr(err, "error happend at IsMemberExists adapter")
+		return false, err
+	}
+
+	return res, nil
+}
+
+func (proj *ProjectUseCases) TerminateProjectMembers(userID, projID string) error {
+
+	if err := proj.Adapter.TerminateProjectMembers(userID, projID); err != nil {
+		helpers.PrintErr(err, "error happenda t TerminateProjectMembers adapter")
+		return err
+	}
+
+	return nil
 }
