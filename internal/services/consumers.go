@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -9,15 +10,17 @@ import (
 
 	"github.com/akshay0074700747/project-company_management-project-service/entities"
 	"github.com/akshay0074700747/project-company_management-project-service/helpers"
+	"github.com/akshay0074700747/project-company_management-project-service/notify"
+	"github.com/akshay0074700747/projectandCompany_management_protofiles/pb/userpb"
 	"github.com/confluentinc/confluent-kafka-go/kafka"
 )
 
 func (project *ProjectServiceServer) StartConsuming() {
 	consumer, err := kafka.NewConsumer(&kafka.ConfigMap{
-		"bootstrap.servers":  "localhost:9092",
-		"group.id":           "taskConsumers",
-		"auto.offset.reset":  "earliest",
-		"enable.auto.commit": "false",
+		"bootstrap.servers":        "localhost:9092",
+		"group.id":                 "taskConsumers",
+		"auto.offset.reset":        "earliest",
+		"enable.auto.commit":       "false",
 		"allow.auto.create.topics": true})
 	if err != nil {
 		helpers.PrintErr(err, "error occured at creating a kafka consumer")
@@ -69,6 +72,22 @@ func (project *ProjectServiceServer) StartConsuming() {
 					fmt.Printf("Error unmarshalling message value: %v\n", err)
 					return
 				}
+
+				go func() {
+					details, err := project.UserConn.GetUserDetails(context.TODO(), &userpb.GetUserDetailsReq{
+						UserID: msg.UserID,
+					})
+					if err != nil {
+						helpers.PrintErr(err, "error happend at sending email")
+					}
+
+					message := "Subject: Notifications\r\n" +
+						"\r\n" +
+						"You have been assigned with a Task,Go to the application to know more details \r\n" +
+						"\r\n"
+
+					notify.NotifyEmailService(project.Producer, project.Topic, details.Email, message)
+				}()
 
 				if err = project.Usecase.AssignTasks(msg); err != nil {
 					helpers.PrintErr(err, "Error occured on AssignTasks usecase")

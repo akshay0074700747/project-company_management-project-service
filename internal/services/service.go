@@ -12,6 +12,7 @@ import (
 	"github.com/akshay0074700747/project-company_management-project-service/entities"
 	"github.com/akshay0074700747/project-company_management-project-service/helpers"
 	"github.com/akshay0074700747/project-company_management-project-service/internal/usecases"
+	"github.com/akshay0074700747/project-company_management-project-service/notify"
 	"github.com/akshay0074700747/projectandCompany_management_protofiles/pb/companypb"
 	"github.com/akshay0074700747/projectandCompany_management_protofiles/pb/projectpb"
 	"github.com/akshay0074700747/projectandCompany_management_protofiles/pb/userpb"
@@ -35,9 +36,9 @@ func NewProjectServiceServer(usecase usecases.ProjectUsecaseInterfaces, usraddr,
 	userRes, _ := helpers.DialGrpc(usraddr)
 	compRes, _ := helpers.DialGrpc(compaddr)
 	rdb := redis.NewClient(&redis.Options{
-		Addr:     "localhost:6379", 
-		Password: "",               
-		DB:       0,                
+		Addr:     "localhost:6379",
+		Password: "",
+		DB:       0,
 	})
 	return &ProjectServiceServer{
 		Usecase:     usecase,
@@ -143,6 +144,13 @@ func (project *ProjectServiceServer) AddMembers(ctx context.Context, req *projec
 			return nil, errors.New("you need to purchase premium for adding more than 10 members")
 		}
 	}
+
+	message := "Subject: Notifications\r\n" +
+		"\r\n" +
+		"A Project Invitation has been sent to you,\r\n" +
+		"\r\n"
+
+	go notify.NotifyEmailService(project.Producer, project.Topic, req.Email, message)
 
 	if err := project.Usecase.Addmembers(entities.Members{
 		MemberID:     res.UserID,
@@ -789,6 +797,24 @@ func (proj *ProjectServiceServer) RateTask(ctx context.Context, req *projectpb.R
 		return nil, err
 	}
 
+	go func() {
+
+		details, err := proj.UserConn.GetUserDetails(ctx, &userpb.GetUserDetailsReq{
+			UserID: req.MemberID,
+		})
+		if err != nil {
+			helpers.PrintErr(err, "error happened atsending email")
+		}
+
+		message := "Subject: Notifications\r\n" +
+			"\r\n" +
+			"You have recieved a feedback for your task,\r\n" +
+			"\r\n"
+
+		notify.NotifyEmailService(proj.Producer, proj.Topic, details.Email, message)
+
+	}()
+
 	return &emptypb.Empty{}, nil
 }
 
@@ -868,6 +894,24 @@ func (proj *ProjectServiceServer) VerifyTaskCompletion(ctx context.Context, req 
 		return nil, err
 	}
 
+	go func() {
+
+		details, err := proj.UserConn.GetUserDetails(ctx, &userpb.GetUserDetailsReq{
+			UserID: req.MemberID,
+		})
+		if err != nil {
+			helpers.PrintErr(err, "error happened atsending email")
+		}
+
+		message := "Subject: Notifications\r\n" +
+			"\r\n" +
+			"Your Work has been verified Successfully.... Congrats ,\r\n" +
+			"\r\n"
+
+		notify.NotifyEmailService(proj.Producer, proj.Topic, details.Email, message)
+
+	}()
+
 	return &emptypb.Empty{}, nil
 }
 
@@ -915,6 +959,24 @@ func (project *ProjectServiceServer) TerminateProjectMembers(ctx context.Context
 	if err := project.Cache.Del(ctx, req.ProjectID+" "+req.MemberID).Err(); err != nil {
 		helpers.PrintErr(err, "eroror happened at clearing cache")
 	}
+
+	go func() {
+
+		details, err := project.UserConn.GetUserDetails(ctx, &userpb.GetUserDetailsReq{
+			UserID: req.MemberID,
+		})
+		if err != nil {
+			helpers.PrintErr(err, "error happened atsending email")
+		}
+
+		message := "Subject: Notifications\r\n" +
+			"\r\n" +
+			"You have been terminated,\r\n" +
+			"\r\n"
+
+		notify.NotifyEmailService(project.Producer, project.Topic, details.Email, message)
+
+	}()
 
 	return &emptypb.Empty{}, nil
 }
