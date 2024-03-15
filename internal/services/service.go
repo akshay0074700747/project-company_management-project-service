@@ -35,9 +35,9 @@ func NewProjectServiceServer(usecase usecases.ProjectUsecaseInterfaces, usraddr,
 	userRes, _ := helpers.DialGrpc(usraddr)
 	compRes, _ := helpers.DialGrpc(compaddr)
 	rdb := redis.NewClient(&redis.Options{
-		Addr:     "localhost:6379", // Redis server address
-		Password: "",               // No password set
-		DB:       0,                // Use default DB
+		Addr:     "localhost:6379", 
+		Password: "",               
+		DB:       0,                
 	})
 	return &ProjectServiceServer{
 		Usecase:     usecase,
