@@ -11,7 +11,7 @@ import (
 
 type ProjectAdapterInterfaces interface {
 	CreateProject(entities.Credentials, string) (entities.Credentials, error)
-	insertIntoCompanyBased(entities.Companies) error
+	// insertIntoCompanyBased(entities.Companies) error
 	IsProjectUsernameExists(string) (bool, error)
 	AddMember(entities.Members) error
 	IsMemberExists(string, string) (bool, error)
@@ -43,21 +43,21 @@ type ProjectAdapterInterfaces interface {
 	MemberState(string, string) (string, error)
 	GetLiveProjectsofCompany(string) ([]entities.GetLiveProjectsUsecase, error)
 	GetCompletedMembers(string, []string) ([]entities.GetCompletedMemebersAdapter, error)
-	RaiseIssue(entities.Issues)(error)
-	GetIssuesofMember(string,string)(entities.Issues,error)
-	GetIssuesofProject(string)([]entities.Issues, error)
-	RateTask(entities.Ratings)(error)
-	GetRating(string,string)(entities.Ratings,error)
-	AskExtension(entities.Extensions)(error)
-	GetExtensionRequestsinaProject(string)([]entities.Extensions,error)
-	ApproveExtensionRequest(uint,bool)(error)
-	VerifyTaskCompletion(string,string,bool)(error)
-	GetVerifiedTasks(string)([]entities.VerifiedTasksUsecase,error)
-	DropProject(string)(error)
-	EditProject(entities.Credentials)(error)
-	EditMember(entities.Members)(error)
-	EditFeedback(entities.Ratings)(error)
-	DeleteFeedback(string,string)(error)
-	GetCountMembers(string) (uint,error)
-	TerminateProjectMembers(string,string)(error)
+	RaiseIssue(entities.Issues) error
+	GetIssuesofMember(string, string) (entities.Issues, error)
+	GetIssuesofProject(string) ([]entities.Issues, error)
+	RateTask(entities.Ratings) error
+	GetRating(string, string) (entities.Ratings, error)
+	AskExtension(entities.Extensions) error
+	GetExtensionRequestsinaProject(string) ([]entities.Extensions, error)
+	ApproveExtensionRequest(uint, bool) error
+	VerifyTaskCompletion(string, string, bool) error
+	GetVerifiedTasks(string) ([]entities.VerifiedTasksUsecase, error)
+	DropProject(string) error
+	EditProject(entities.Credentials) error
+	EditMember(entities.Members) error
+	EditFeedback(entities.Ratings) error
+	DeleteFeedback(string, string) error
+	GetCountMembers(string) (uint, error)
+	TerminateProjectMembers(string, string) error
 }

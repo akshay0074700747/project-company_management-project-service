@@ -1,13 +1,16 @@
 package notify
 
 import (
+	"encoding/json"
 	"fmt"
 
-	"github.com/akshay0074700747/proto-files-for-microservices/pb"
 	"github.com/confluentinc/confluent-kafka-go/kafka"
-	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/reflect/protoreflect"
 )
+
+type SendMail struct {
+	Email   string `json:"Email"`
+	Message string `json:"Message"`
+}
 
 func InitEmailNotifier() (p *kafka.Producer) {
 	p, err := kafka.NewProducer(&kafka.ConfigMap{
@@ -23,16 +26,18 @@ func InitEmailNotifier() (p *kafka.Producer) {
 
 func NotifyEmailService(p *kafka.Producer, topic, recieverEmail, message string) {
 
-	email := pb.Email{
-		Reciever: recieverEmail,
-		Message:  message,
+	email := SendMail{
+		Email:   recieverEmail,
+		Message: message,
 	}
-	value, err := Serialize(&email)
+
+	value, err := json.Marshal(email)
+
 	if err != nil {
 		fmt.Println(err)
 	}
 	if err := p.Produce(&kafka.Message{
-		TopicPartition: kafka.TopicPartition{Topic: &topic, Partition: kafka.PartitionAny},
+		TopicPartition: kafka.TopicPartition{Topic: &topic, Partition: 0},
 		Value:          value},
 		nil,
 	); err != nil {
@@ -42,13 +47,4 @@ func NotifyEmailService(p *kafka.Producer, topic, recieverEmail, message string)
 
 	fmt.Println("notified")
 
-}
-
-func Serialize(m protoreflect.ProtoMessage) ([]byte, error) {
-
-	serialized, err := proto.Marshal(m)
-	if err != nil {
-		return nil, err
-	}
-	return serialized, nil
 }

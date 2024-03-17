@@ -79,6 +79,10 @@ func (project *ProjectUseCases) Addmembers(req entities.Members) error {
 
 func (project *ProjectUseCases) AcceptInvitation(req entities.Members, accepted bool) error {
 
+	if req.MemberID == "" || req.ProjectID == "" {
+		return errors.New("the memeberID or projectID cannot be nil")
+	}
+	
 	if accepted {
 		if err := project.Adapter.AcceptInvitation(req); err != nil {
 			helpers.PrintErr(err, "error occured at AcceptInvitation adapter")

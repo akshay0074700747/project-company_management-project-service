@@ -956,7 +956,7 @@ func (project *ProjectServiceServer) TerminateProjectMembers(ctx context.Context
 		return nil, err
 	}
 
-	if err := project.Cache.Del(ctx, req.ProjectID+" "+req.MemberID).Err(); err != nil {
+	if err := project.Cache.Del(ctx, req.ProjectID+"_"+req.MemberID).Err(); err != nil {
 		helpers.PrintErr(err, "eroror happened at clearing cache")
 	}
 
