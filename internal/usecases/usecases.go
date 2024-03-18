@@ -224,6 +224,10 @@ func (project *ProjectUseCases) GetProgressofMember(req entities.UserProgressUse
 	}
 
 	progress := (req.TasksCompleted / uint32(taskDtl.Stages)) * 100
+	
+	if progress > 100 {
+		progress = 100
+		}
 
 	req.Progress = (strconv.Itoa(int(progress)) + "%")
 	req.TaskDeadline = taskDtl.Deadline.String()
@@ -278,6 +282,9 @@ func (project *ProjectUseCases) GetProgressofMembers(req entities.ListofUserProg
 	for i := range req.UserAndProgress {
 		req.UserAndProgress[i].TaskDeadline = res[i].Deadline.String()
 		progress := (float32(req.UserAndProgress[i].Stages) / float32(res[i].Stages)) * 100
+		if progress > 100 {
+		progress = 100
+		}
 		req.UserAndProgress[i].Progress = (strconv.Itoa((int(progress))) + "%")
 		progg := int(progress)
 		progg = progg - (progg % 10)
@@ -345,7 +352,11 @@ func (project *ProjectUseCases) GetProjectProgress(projectID string, req entitie
 	result.LiveMembers = uint32(members)
 	result.TaskCompletedMembers = uint32(fullCompleted)
 	result.TaskCriticalMembers = uint32(lessCompleted)
-	result.Progress = (strconv.Itoa((int(sum / float32(len(req.UserAndProgress))))) + "%")
+	progress := int(sum / float32(len(req.UserAndProgress)))
+	if progress > 100 {
+	progress = 100
+	}
+	result.Progress = (strconv.Itoa(progress) + "%")
 
 	return result, nil
 }

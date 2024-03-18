@@ -449,6 +449,10 @@ func (project *ProjectServiceServer) GetProgressofMembers(req *projectpb.GetProg
 		helpers.PrintErr(err, "errro happened at creating stream")
 		return err
 	}
+	
+	fmt.Println(len(res.UserAndProgress),"--- progress")
+	fmt.Println(len(statuses),"--- len of statuses")
+	fmt.Println(statuses," --- statuses")
 
 	for i := range res.UserAndProgress {
 
@@ -799,7 +803,7 @@ func (proj *ProjectServiceServer) RateTask(ctx context.Context, req *projectpb.R
 
 	go func() {
 
-		details, err := proj.UserConn.GetUserDetails(ctx, &userpb.GetUserDetailsReq{
+		details, err := proj.UserConn.GetUserDetails(context.TODO(), &userpb.GetUserDetailsReq{
 			UserID: req.MemberID,
 		})
 		if err != nil {
@@ -896,7 +900,7 @@ func (proj *ProjectServiceServer) VerifyTaskCompletion(ctx context.Context, req 
 
 	go func() {
 
-		details, err := proj.UserConn.GetUserDetails(ctx, &userpb.GetUserDetailsReq{
+		details, err := proj.UserConn.GetUserDetails(context.TODO(), &userpb.GetUserDetailsReq{
 			UserID: req.MemberID,
 		})
 		if err != nil {
@@ -962,7 +966,7 @@ func (project *ProjectServiceServer) TerminateProjectMembers(ctx context.Context
 
 	go func() {
 
-		details, err := project.UserConn.GetUserDetails(ctx, &userpb.GetUserDetailsReq{
+		details, err := project.UserConn.GetUserDetails(context.TODO(), &userpb.GetUserDetailsReq{
 			UserID: req.MemberID,
 		})
 		if err != nil {
