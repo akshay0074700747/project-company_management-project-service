@@ -14,7 +14,7 @@ type SendMail struct {
 
 func InitEmailNotifier() (p *kafka.Producer) {
 	p, err := kafka.NewProducer(&kafka.ConfigMap{
-		"bootstrap.servers": "localhost:9092",
+		"bootstrap.servers": "host.docker.internal:9092",
 		"client.id":         "producer",
 		"acks":              "all"})
 

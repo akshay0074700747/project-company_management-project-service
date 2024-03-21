@@ -17,7 +17,7 @@ import (
 
 func (project *ProjectServiceServer) StartConsuming() {
 	consumer, err := kafka.NewConsumer(&kafka.ConfigMap{
-		"bootstrap.servers":        "localhost:9092",
+		"bootstrap.servers":        "host.docker.internal:9092",
 		"group.id":                 "taskConsumers",
 		"auto.offset.reset":        "earliest",
 		"enable.auto.commit":       "false",
