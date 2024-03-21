@@ -36,7 +36,7 @@ func NewProjectServiceServer(usecase usecases.ProjectUsecaseInterfaces, usraddr,
 	userRes, _ := helpers.DialGrpc(usraddr)
 	compRes, _ := helpers.DialGrpc(compaddr)
 	rdb := redis.NewClient(&redis.Options{
-		Addr:     "localhost:6379",
+		Addr:     "host.docker.internal:6379",
 		Password: "",
 		DB:       0,
 	})
@@ -449,10 +449,10 @@ func (project *ProjectServiceServer) GetProgressofMembers(req *projectpb.GetProg
 		helpers.PrintErr(err, "errro happened at creating stream")
 		return err
 	}
-	
-	fmt.Println(len(res.UserAndProgress),"--- progress")
-	fmt.Println(len(statuses),"--- len of statuses")
-	fmt.Println(statuses," --- statuses")
+
+	fmt.Println(len(res.UserAndProgress), "--- progress")
+	fmt.Println(len(statuses), "--- len of statuses")
+	fmt.Println(statuses, " --- statuses")
 
 	for i := range res.UserAndProgress {
 
