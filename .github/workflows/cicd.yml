@@ -1,0 +1,65 @@
+
+name: Publish Docker image
+
+on:
+  pull_request:
+  push:
+
+    tags:
+      - "*"
+
+jobs:
+
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.21.5'
+
+    - name: Test
+      run: go test -v ./test
+
+  push_to_registry:
+    name: Push Docker image to Docker Hub
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v4
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@f4ef78c080cd8ba55a85445d5b36e214a81df20a
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Add env file to the runner just for copying the env variables to the container
+        run: |
+         echo 'dbhost=${{ secrets.DBHOST }}' > cmd/.env   
+         echo 'dbport=${{ secrets.DBPORT }}' >> cmd/.env
+         echo 'dbname=${{ secrets.DBNAME }}' >> cmd/.env 
+         echo 'dbpassword=${{ secrets.DBPASSWORD }}' >> cmd/.env
+         echo 'dbuser=${{ secrets.DBUSER }}' >> cmd/.env  
+         echo 'accessKey=${{ secrets.ACCESSKEY }}' >> cmd/.env
+         echo 'secretKey=${{ secrets.SECRETKEY }}' >> cmd/.env 
+         echo 'endpoint=${{ secrets.ENDPOINT }}' >> cmd/.env 
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@9ec57ed1fcdbf14dcef7dfbe97b2010124a938b7
+        with:
+          images: ${{ secrets.DOCKER_USERNAME }}/project-and-company-management-project-service
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@3b5e8027fcad23fda98b2e3ac259d8d67585f671
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: ${{ env.GITHUB_REF_NAME }}
+          labels: ${{ steps.meta.outputs.labels }}
