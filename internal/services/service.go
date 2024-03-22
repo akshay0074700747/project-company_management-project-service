@@ -126,7 +126,7 @@ func (project *ProjectServiceServer) AddMembers(ctx context.Context, req *projec
 
 	if count > 10 {
 
-		url := fmt.Sprintf("http://localhost:50007/transaction/project?assetID=%s", req.ProjectID)
+		url := fmt.Sprintf("http://payment-service:50007/transaction/project?assetID=%s", req.ProjectID)
 		resStages, err := http.Get(url)
 		if err != nil {
 			helpers.PrintErr(err, "errro happened at calling http method")
@@ -363,7 +363,7 @@ func (project *ProjectServiceServer) AddTaskStatuses(ctx context.Context, req *p
 
 func (project *ProjectServiceServer) GetProgressofMember(ctx context.Context, req *projectpb.GetProgressofMemberReq) (*projectpb.GetProgressofMemberRes, error) {
 
-	url := fmt.Sprintf("http://localhost:50005/project/task/stages?userID=%s&&projectID=%s", req.MemberID, req.ProjectID)
+	url := fmt.Sprintf("http://snapshot-service:50005/project/task/stages?userID=%s&&projectID=%s", req.MemberID, req.ProjectID)
 	resStages, err := http.Get(url)
 	if err != nil {
 		helpers.PrintErr(err, "errro happened at calling http method")
@@ -425,7 +425,7 @@ func (project *ProjectServiceServer) GetProgressofMember(ctx context.Context, re
 
 func (project *ProjectServiceServer) GetProgressofMembers(req *projectpb.GetProgressofMembersReq, stream projectpb.ProjectService_GetProgressofMembersServer) error {
 
-	url := fmt.Sprintf("http://localhost:50005/project/task/stages/count?projectID=%s", req.ProjectID)
+	url := fmt.Sprintf("http://snapshot-service:50005/project/task/stages/count?projectID=%s", req.ProjectID)
 	resStages, err := http.Get(url)
 	if err != nil {
 		helpers.PrintErr(err, "errro happened at calling http method")
@@ -489,7 +489,7 @@ func (project *ProjectServiceServer) GetProgressofMembers(req *projectpb.GetProg
 
 func (project *ProjectServiceServer) GetProjectProgress(ctx context.Context, req *projectpb.GetProjectProgressReq) (*projectpb.GetProjectProgressRes, error) {
 
-	url := fmt.Sprintf("http://localhost:50005/project/task/stages/count?projectID=%s", req.ProjectID)
+	url := fmt.Sprintf("http://snapshot-service:50005/project/task/stages/count?projectID=%s", req.ProjectID)
 	resStages, err := http.Get(url)
 	if err != nil {
 		helpers.PrintErr(err, "errro happened at calling http method")
@@ -621,7 +621,7 @@ func (project *ProjectServiceServer) GetStreamofProjectDetails(stream projectpb.
 
 func (project *ProjectServiceServer) GetCompletedMembers(req *projectpb.GetCompletedMembersReq, stream projectpb.ProjectService_GetCompletedMembersServer) error {
 
-	url := fmt.Sprintf("http://localhost:50005/project/task/stages/count?projectID=%s", req.ProjectID)
+	url := fmt.Sprintf("http://snapshot-service:50005/project/task/stages/count?projectID=%s", req.ProjectID)
 	resStages, err := http.Get(url)
 	if err != nil {
 		helpers.PrintErr(err, "errro happened at calling http method")
@@ -635,6 +635,10 @@ func (project *ProjectServiceServer) GetCompletedMembers(req *projectpb.GetCompl
 	}
 
 	users, err := project.Usecase.GetCompletedMembers(req.ProjectID, list, true)
+	if err != nil {
+		helpers.PrintErr(err, "erorr happened at GetCompletedMembers")
+	}
+
 	streaam, err := project.UserConn.GetStreamofUserDetails(context.TODO())
 	if err != nil {
 		helpers.PrintErr(err, "erorr happened at GetStreamofUserDetails")
@@ -670,7 +674,7 @@ func (project *ProjectServiceServer) GetCompletedMembers(req *projectpb.GetCompl
 
 func (project *ProjectServiceServer) GetCriticalMembers(req *projectpb.GetCriticalMembersReq, stream projectpb.ProjectService_GetCriticalMembersServer) error {
 
-	url := fmt.Sprintf("http://localhost:50005/project/task/stages/count?projectID=%s", req.ProjectID)
+	url := fmt.Sprintf("http://snapshot-service:50005/project/task/stages/count?projectID=%s", req.ProjectID)
 	resStages, err := http.Get(url)
 	if err != nil {
 		helpers.PrintErr(err, "errro happened at calling http method")
@@ -684,6 +688,10 @@ func (project *ProjectServiceServer) GetCriticalMembers(req *projectpb.GetCritic
 	}
 
 	users, err := project.Usecase.GetCompletedMembers(req.ProjectID, list, false)
+	if err != nil {
+		helpers.PrintErr(err, "erorr happened at GetStreamofUserDetails")
+	}
+
 	streaam, err := project.UserConn.GetStreamofUserDetails(context.TODO())
 	if err != nil {
 		helpers.PrintErr(err, "erorr happened at GetStreamofUserDetails")
