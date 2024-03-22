@@ -21,7 +21,7 @@ func InitEmailNotifier() (p sarama.SyncProducer) {
 	config.Producer.Retry.Max = 5
 	config.Producer.Retry.Backoff = 50 * time.Millisecond
 
-	p, err := sarama.NewSyncProducer([]string{"host.docker.internal:9092"}, config)
+	p, err := sarama.NewSyncProducer([]string{"localhost:9092"}, config)
 	if err != nil {
 		helpers.PrintErr(err, "error happeed at creating producer")
 	}
