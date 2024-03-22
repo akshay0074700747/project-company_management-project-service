@@ -3,6 +3,7 @@ package notify
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/IBM/sarama"
@@ -21,9 +22,18 @@ func InitEmailNotifier() (p sarama.SyncProducer) {
 	config.Producer.Retry.Max = 5
 	config.Producer.Retry.Backoff = 50 * time.Millisecond
 
-	p, err := sarama.NewSyncProducer([]string{"localhost:9092"}, config)
-	if err != nil {
-		helpers.PrintErr(err, "error happeed at creating producer")
+	var err error
+	for i := 0; i < 8; i++ {
+		p, err = sarama.NewSyncProducer([]string{"host.docker.internal:29092"}, config)
+		if err != nil {
+			if i == 7 {
+				log.Fatal("Closingg: %v", err)
+			}
+			fmt.Println("Error creating producer : ", i, ": %v", err)
+			time.Sleep(time.Second * 3)
+		} else {
+			break
+		}
 	}
 	return
 }
