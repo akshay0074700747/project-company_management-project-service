@@ -3,8 +3,10 @@ package notify
 import (
 	"encoding/json"
 	"fmt"
+	"time"
 
-	"github.com/confluentinc/confluent-kafka-go/kafka"
+	"github.com/IBM/sarama"
+	"github.com/akshay0074700747/project-company_management-project-service/helpers"
 )
 
 type SendMail struct {
@@ -12,19 +14,21 @@ type SendMail struct {
 	Message string `json:"Message"`
 }
 
-func InitEmailNotifier() (p *kafka.Producer) {
-	p, err := kafka.NewProducer(&kafka.ConfigMap{
-		"bootstrap.servers": "host.docker.internal:9092",
-		"client.id":         "producer",
-		"acks":              "all"})
+func InitEmailNotifier() (p sarama.SyncProducer) {
+	config := sarama.NewConfig()
+	config.Producer.RequiredAcks = sarama.WaitForAll
+	config.Producer.Return.Successes = true
+	config.Producer.Retry.Max = 5
+	config.Producer.Retry.Backoff = 50 * time.Millisecond
 
+	p, err := sarama.NewSyncProducer([]string{"host.docker.internal:9092"}, config)
 	if err != nil {
-		fmt.Printf("Failed to create producer: %s\n", err)
+		helpers.PrintErr(err, "error happeed at creating producer")
 	}
 	return
 }
 
-func NotifyEmailService(p *kafka.Producer, topic, recieverEmail, message string) {
+func NotifyEmailService(p sarama.SyncProducer, topic, recieverEmail, message string) {
 
 	email := SendMail{
 		Email:   recieverEmail,
@@ -36,15 +40,17 @@ func NotifyEmailService(p *kafka.Producer, topic, recieverEmail, message string)
 	if err != nil {
 		fmt.Println(err)
 	}
-	if err := p.Produce(&kafka.Message{
-		TopicPartition: kafka.TopicPartition{Topic: &topic, Partition: 0},
-		Value:          value},
-		nil,
-	); err != nil {
-		fmt.Println("here occured an error")
-		fmt.Println(err)
+	msg := &sarama.ProducerMessage{
+		Topic:     topic,
+		Partition: 0,
+		Value:     sarama.ByteEncoder(value),
 	}
-
+	_, offset, err := p.SendMessage(msg)
+	if err != nil {
+		helpers.PrintErr(err, "error sending message to Kafka")
+		return
+	}
+	fmt.Println(offset, " completed...")
 	fmt.Println("notified")
 
 }

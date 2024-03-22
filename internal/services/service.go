@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/IBM/sarama"
 	"github.com/akshay0074700747/project-company_management-project-service/entities"
 	"github.com/akshay0074700747/project-company_management-project-service/helpers"
 	"github.com/akshay0074700747/project-company_management-project-service/internal/usecases"
@@ -16,7 +17,6 @@ import (
 	"github.com/akshay0074700747/projectandCompany_management_protofiles/pb/companypb"
 	"github.com/akshay0074700747/projectandCompany_management_protofiles/pb/projectpb"
 	"github.com/akshay0074700747/projectandCompany_management_protofiles/pb/userpb"
-	"github.com/confluentinc/confluent-kafka-go/kafka"
 	"github.com/go-redis/redis/v8"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -26,13 +26,13 @@ type ProjectServiceServer struct {
 	Usecase     usecases.ProjectUsecaseInterfaces
 	UserConn    userpb.UserServiceClient
 	CompanyConn companypb.CompanyServiceClient
-	Producer    *kafka.Producer
+	Producer    sarama.SyncProducer
 	Topic       string
 	Cache       *redis.Client
 	projectpb.UnimplementedProjectServiceServer
 }
 
-func NewProjectServiceServer(usecase usecases.ProjectUsecaseInterfaces, usraddr, compaddr, topic string, producer *kafka.Producer) *ProjectServiceServer {
+func NewProjectServiceServer(usecase usecases.ProjectUsecaseInterfaces, usraddr, compaddr, topic string, producer sarama.SyncProducer) *ProjectServiceServer {
 	userRes, _ := helpers.DialGrpc(usraddr)
 	compRes, _ := helpers.DialGrpc(compaddr)
 	rdb := redis.NewClient(&redis.Options{
