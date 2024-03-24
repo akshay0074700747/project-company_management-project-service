@@ -115,7 +115,7 @@ func (project *ProjectServiceServer) StartConsuming() {
 	var consumer sarama.Consumer
 	var err error
 	for i := 0; i < 8; i++ {
-		consumer, err = sarama.NewConsumer([]string{"host.docker.internal:29092"}, config)
+		consumer, err = sarama.NewConsumer([]string{"apache-kafka-service:9092"}, config)
 		if err != nil {
 			if i == 7 {
 				log.Fatal("Closingg: %v", err)

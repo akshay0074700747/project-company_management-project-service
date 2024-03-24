@@ -24,7 +24,7 @@ func InitEmailNotifier() (p sarama.SyncProducer) {
 
 	var err error
 	for i := 0; i < 8; i++ {
-		p, err = sarama.NewSyncProducer([]string{"host.docker.internal:29092"}, config)
+		p, err = sarama.NewSyncProducer([]string{"apache-kafka-service:9092"}, config)
 		if err != nil {
 			if i == 7 {
 				log.Fatal("Closingg: %v", err)

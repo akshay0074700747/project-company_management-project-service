@@ -36,7 +36,7 @@ func NewProjectServiceServer(usecase usecases.ProjectUsecaseInterfaces, usraddr,
 	userRes, _ := helpers.DialGrpc(usraddr)
 	compRes, _ := helpers.DialGrpc(compaddr)
 	rdb := redis.NewClient(&redis.Options{
-		Addr:     "host.docker.internal:6379",
+		Addr:     "redis-service:6379",
 		Password: "",
 		DB:       0,
 	})
